@@ -414,6 +414,7 @@ window.changeWeek=n=>{weekOffset+=n;planning()};
 window.openMeal=(k,slot)=>{
  $("#mdate").value=k;$("#mslot").value=slot;
  let existing=data.planning[k]?.[slot],selected=new Set(mealItems(existing).map(x=>x.recipeId));
+ mealDialog._selectedRecipes=selected;
  let first=mealRecipes(existing)[0]?.r;
  $("#mserv").value=existing?.servings||first?.servings||2;
  const mealCategories=["Toutes",...new Set(data.recipes.map(r=>r.category||"Autre"))];
@@ -438,15 +439,16 @@ window.openMeal=(k,slot)=>{
 };
 $("#mealForm").onsubmit=e=>{
  e.preventDefault();let k=$("#mdate").value,slot=$("#mslot").value;
+ const selected=mealDialog._selectedRecipes||new Set();
  document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>selected.add(cb.value));
  let ids=[...selected];
  if(!ids.length){alert("Sélectionne au moins une recette.");return}
  data.planning[k]??={};
  data.planning[k][slot]={recipes:ids.map(recipeId=>({recipeId})),servings:+$("#mserv").value};
  ids.forEach(rid=>data.history.unshift({date:k,slot,recipeId:rid}));
- data.history=data.history.slice(0,100);mealDialog.close();save()
+ data.history=data.history.slice(0,100);mealDialog._selectedRecipes=null;mealDialog.close();save()
 };
-$("#removeMeal").onclick=()=>{let k=$("#mdate").value,slot=$("#mslot").value;if(data.planning[k])delete data.planning[k][slot];mealDialog.close();save()};
+$("#removeMeal").onclick=()=>{let k=$("#mdate").value,slot=$("#mslot").value;if(data.planning[k])delete data.planning[k][slot];mealDialog._selectedRecipes=null;mealDialog.close();save()};
 window.copyWeek=()=>{
  let src=weekDates(weekOffset),dst=weekDates(weekOffset+1);
  src.forEach((d,i)=>{let p=data.planning[dateKey(d)];if(p)data.planning[dateKey(dst[i])]=JSON.parse(JSON.stringify(p))});
