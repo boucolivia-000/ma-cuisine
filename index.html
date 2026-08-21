@@ -97,6 +97,10 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
 .mealstack{display:grid;gap:5px}
 .mealstack .mealchip{padding:6px}
 
+.mealfilters{display:flex;gap:7px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.mealfilters::-webkit-scrollbar{display:none}
+.mealfilters button{white-space:nowrap}
+.mealsearch{margin:10px 0}
 .syncpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 9px;border-radius:99px;background:#eef4eb;color:var(--green);margin-top:5px}
 .syncpill.offline{background:#f5e8df;color:#9a572d}
 .authscreen{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg)}
@@ -170,6 +174,8 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
   <label>Nombre de personnes<input id="mserv" type="number" min="1" value="2"></label>
   <label>Recettes</label>
   <div class="muted" style="margin-bottom:8px">Sélectionne une ou plusieurs recettes pour composer le même repas.</div>
+  <input id="mealRecipeSearch" class="mealsearch" type="search" placeholder="🔎 Rechercher une recette…">
+  <div id="mealCategoryFilters" class="mealfilters"></div>
   <div id="mealRecipeChoices"></div>
   <div class="dialogactions"><button type="button" class="soft" id="removeMeal">Retirer le repas</button><button class="primary">Enregistrer</button></div>
  </form>
@@ -415,11 +421,30 @@ window.openMeal=(k,slot)=>{
  let existing=data.planning[k]?.[slot],selected=new Set(mealItems(existing).map(x=>x.recipeId));
  let first=mealRecipes(existing)[0]?.r;
  $("#mserv").value=existing?.servings||first?.servings||2;
- $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${data.recipes.map(r=>`<label class="mealchoice">
+ $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${data.recipes.map(r=>`<label class="mealchoice meal-recipe-option" data-category="${escapeHtml(r.category||'Autre')}" data-name="${escapeHtml(r.name).toLowerCase()}">
    <input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}>
    <span class="mini">${imgHTML(r)}</span>
    <span><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span></span>
  </label>`).join("")}</div>`;
+ const mealCats=["Toutes",...new Set(data.recipes.map(r=>r.category||"Autre"))];
+ let mealCat="Toutes";
+ const applyMealFilter=()=>{
+   const q=($("#mealRecipeSearch").value||"").trim().toLowerCase();
+   document.querySelectorAll(".meal-recipe-option").forEach(el=>{
+     const okCat=mealCat==="Toutes"||el.dataset.category===mealCat;
+     const okText=!q||(el.dataset.name||"").includes(q);
+     el.style.display=okCat&&okText?"":"none";
+   });
+ };
+ $("#mealCategoryFilters").innerHTML=mealCats.map(c=>`<button type="button" class="chipfilter ${c==="Toutes"?"active":""}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("");
+ $("#mealCategoryFilters").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+   mealCat=b.dataset.cat;
+   $("#mealCategoryFilters").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+   applyMealFilter();
+ });
+ $("#mealRecipeSearch").value="";
+ $("#mealRecipeSearch").oninput=applyMealFilter;
+ applyMealFilter();
  $("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
 };
 $("#mealForm").onsubmit=e=>{
