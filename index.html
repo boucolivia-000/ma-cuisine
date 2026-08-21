@@ -96,14 +96,39 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
 .mealchoice .mini img{width:100%;height:100%;object-fit:cover}
 .mealstack{display:grid;gap:5px}
 .mealstack .mealchip{padding:6px}
+
+.syncpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 9px;border-radius:99px;background:#eef4eb;color:var(--green);margin-top:5px}
+.syncpill.offline{background:#f5e8df;color:#9a572d}
+.authscreen{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg)}
+.authbox{width:min(430px,100%);background:var(--card);border:1px solid var(--line);border-radius:25px;padding:24px;box-shadow:0 20px 60px rgba(60,45,30,.12)}
+.authlogo{width:110px;height:110px;border-radius:26px;overflow:hidden;margin:0 auto 18px}
+.authlogo img{width:100%;height:100%;object-fit:cover}
+.authbox h1{text-align:center}.authbox .subtitle{text-align:center;margin-bottom:18px}
+.autherror{color:#9b3b31;font-size:13px;margin-top:10px;min-height:18px}
+.userbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}.recipe{grid-template-columns:63px 1fr auto}.thumb{width:63px;height:63px}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="authScreen" class="authscreen" style="display:none">
+  <div class="authbox">
+    <div class="authlogo"><img src="nout-kaz-icon.png" alt="Nout’ Kaz"></div>
+    <h1>Nout’ Kaz</h1>
+    <div class="subtitle">Votre espace partagé pour les recettes, repas et courses.</div>
+    <form id="loginForm">
+      <label>Adresse e-mail<input id="loginEmail" type="email" autocomplete="email" required></label>
+      <label>Mot de passe<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button class="primary" style="width:100%;margin-top:8px">Se connecter</button>
+      <div id="authError" class="autherror"></div>
+    </form>
+  </div>
+</div>
+
 <div id="app">
 <header>
  <div><h1 id="title">Accueil</h1><div class="subtitle" id="subtitle"></div></div>
- <button class="circle" id="headerAdd">＋</button>
+ <div class="userbar"><span id="syncStatus" class="syncpill">☁ Synchronisation</span><button class="iconbtn" id="logoutBtn" title="Se déconnecter">⇥</button><button class="circle" id="headerAdd">＋</button></div>
 </header>
 <main id="view"></main>
 <nav>
@@ -177,7 +202,12 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
 </div></dialog>
 
 <script>
-const KEY="maCuisineV2";
+const KEY="noutKazLocalV4";
+const SUPABASE_URL="https://fnmeafiolmisbnvgtvhj.supabase.co";
+const SUPABASE_KEY="sb_publishable_MFJ9AbJQKzbGiuKcfQPoCg__8b_yaL3";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+});
 const DAYS=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const seed={recipes:[
 {id:"r1",name:"Pâtes à la tomate et basilic",photo:"",servings:2,prep:20,cook:25,difficulty:"Facile",category:"Plat",favorite:true,ingredients:[
@@ -190,8 +220,71 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
 if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[];
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
+let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
-function save(norender=false){localStorage.setItem(KEY,JSON.stringify(data));if(!norender)render()}
+
+function setSyncStatus(text,offline=false){
+ const el=$("#syncStatus"); if(!el)return;
+ el.textContent=text; el.classList.toggle("offline",offline);
+}
+async function save(norender=false){
+ localStorage.setItem(KEY,JSON.stringify(data));
+ if(!norender)render();
+ if(currentUser && householdUuid && !isApplyingRemote){
+   clearTimeout(syncTimer);
+   syncTimer=setTimeout(pushRemote,350);
+ }
+}
+async function pushRemote(){
+ if(!currentUser||!householdUuid)return;
+ try{
+   setSyncStatus("☁ Synchronisation…");
+   const payload={...data,_sync_updated_at:new Date().toISOString()};
+   const {error}=await sb.from("nout_kaz_data")
+     .update({data:payload,updated_at:new Date().toISOString()})
+     .eq("household_uuid",householdUuid);
+   if(error)throw error;
+   setSyncStatus("✓ Synchronisé");
+ }catch(err){
+   console.error(err); setSyncStatus("⚠ Hors ligne",true);
+ }
+}
+async function loadRemote(){
+ const {data:membership,error:me}=await sb.from("household_members")
+   .select("household_id").eq("user_id",currentUser.id).maybeSingle();
+ if(me)throw me;
+ if(!membership)throw new Error("Ce compte n’est rattaché à aucun Nout’ Kaz.");
+ householdUuid=membership.household_id;
+ const {data:row,error}=await sb.from("nout_kaz_data")
+   .select("id,data,updated_at").eq("household_uuid",householdUuid).maybeSingle();
+ if(error)throw error;
+ if(!row)throw new Error("Les données partagées Nout’ Kaz sont introuvables.");
+ remoteRowId=row.id;
+ const remote=row.data||{};
+ const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
+ if(remoteHasContent && Object.keys(remote).length>1){
+   isApplyingRemote=true;
+   data={...seed,...remote};
+   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   localStorage.setItem(KEY,JSON.stringify(data));
+   isApplyingRemote=false;
+ }else{
+   // First connection: migrate this device's existing Nout' Kaz to the shared cloud row.
+   await pushRemote();
+ }
+ setSyncStatus("✓ Synchronisé");
+ render();
+}
+async function bootAuth(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(session){
+   currentUser=session.user; $("#authScreen").style.display="none"; $("#app").style.display="";
+   try{await loadRemote()}catch(err){console.error(err);setSyncStatus("⚠ Sync",true);alert(err.message)}
+ }else{
+   currentUser=null; $("#app").style.display="none"; $("#authScreen").style.display="grid";
+ }
+}
+
 function uid(p="x"){return p+Math.random().toString(36).slice(2,9)}
 function dateKey(d){let x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,10)}
 function monday(offset=0){let d=new Date(),n=(d.getDay()+6)%7;d.setDate(d.getDate()-n+offset*7);d.setHours(12,0,0,0);return d}
@@ -398,7 +491,51 @@ window.removePantry=i=>{data.pantry.splice(i,1);save(true);drawShop()};
 window.exportData=()=>{let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="nout-kaz-sauvegarde.json";a.click();URL.revokeObjectURL(a.href)};
 window.importData=e=>{let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{try{data=JSON.parse(rd.result);save();alert("Données restaurées.")}catch(err){alert("Fichier invalide.")}};rd.readAsText(f)};
 
-render();
+$("#loginForm").onsubmit=async e=>{
+ e.preventDefault();$("#authError").textContent="";
+ const email=$("#loginEmail").value.trim(),password=$("#loginPassword").value;
+ const {data:res,error}=await sb.auth.signInWithPassword({email,password});
+ if(error){$("#authError").textContent="Connexion impossible : "+error.message;return}
+ currentUser=res.user;$("#authScreen").style.display="none";$("#app").style.display="";
+ try{await loadRemote()}catch(err){$("#authError").textContent=err.message;alert(err.message)}
+};
+$("#logoutBtn").onclick=async()=>{await sb.auth.signOut();currentUser=null;householdUuid=null;$("#app").style.display="none";$("#authScreen").style.display="grid"};
+
+sb.auth.onAuthStateChange((event,session)=>{
+ if(event==="SIGNED_OUT"){currentUser=null;householdUuid=null}
+});
+
+// Listen for edits made by the other phone.
+sb.channel("nout-kaz-shared")
+ .on("postgres_changes",{event:"UPDATE",schema:"public",table:"nout_kaz_data"},payload=>{
+   if(!householdUuid || payload.new.household_uuid!==householdUuid)return;
+   const incoming=payload.new.data||{};
+   if(!incoming.recipes && !incoming.planning)return;
+   isApplyingRemote=true;
+   data={...seed,...incoming};
+   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   localStorage.setItem(KEY,JSON.stringify(data));
+   isApplyingRemote=false;
+   setSyncStatus("✓ Mis à jour");
+   render();
+ }).subscribe();
+
+// Fallback refresh every 20 seconds if realtime isn't enabled for the table.
+setInterval(async()=>{
+ if(!currentUser||!householdUuid)return;
+ try{
+   const {data:row,error}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
+   if(error||!row)return;
+   const incoming=row.data||{};
+   if(JSON.stringify(incoming)!==JSON.stringify(data)){
+     isApplyingRemote=true;data={...seed,...incoming};
+     if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+     localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
+   }
+ }catch(e){}
+},20000);
+
+bootAuth();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script>
 </body>

@@ -1,7 +1,7 @@
 {
   "name": "Nout’ Kaz",
   "short_name": "Nout’ Kaz",
-  "description": "Recettes, planning des repas et courses du foyer.",
+  "description": "Recettes, planning, courses et organisation du foyer, synchronisés.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
