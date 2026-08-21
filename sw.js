@@ -1,4 +1,4 @@
-const CACHE="nout-kaz-v4-3-4-auto-update";
+const CACHE="nout-kaz-v4-3-6-aujourdhui";
 const STATIC=["./manifest.json","./nout-kaz-icon.png"];
 
 self.addEventListener("install",event=>{

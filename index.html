@@ -315,7 +315,7 @@ function home(){
  head("Nout’ Kaz 🏡","Recettes, repas et courses de la maison");
  let today=dateKey(new Date()), p=data.planning[today]||{}, upcoming=[];
  weekDates(0).forEach(d=>{let q=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{if(q[slot]){let rs=mealRecipes(q[slot]);if(rs.length)upcoming.push({d,slot,rs,serv:q[slot].servings||rs[0].r.servings})}})});
- let tod=[["midi",p.midi],["soir",p.soir]].filter(x=>x[1]).map(([slot,m])=>{let rs=mealRecipes(m);return rs.length?`<div class="ingredient"><b>${slot==="midi"?"Midi":"Soir"}</b><span>${rs.map(x=>escapeHtml(x.r.name)).join(" + ")}</span></div>`:""}).join("");
+ let tod=[["midi",p.midi],["soir",p.soir]].filter(x=>x[1]).map(([slot,m])=>{let rs=mealRecipes(m);return rs.length?`<div class="ingredient"><b>${slot==="midi"?"Midi":"Soir"}</b><div style="flex:1" class="mealstack">${rs.map(x=>`<button type="button" class="today-recipe-link" data-recipe-id="${x.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div></div>`:""}).join("");
  view.innerHTML=`
  <div class="card">
    <h2>Aujourd'hui</h2>${tod||'<div class="empty">Aucun repas prévu aujourd’hui.</div>'}
@@ -325,14 +325,12 @@ function home(){
   <button class="quick" onclick="openRecipe()">＋<br><br><b>Ajouter une<br>recette</b></button>
  </div>
  <div class="card" style="margin-top:13px"><h3>À venir cette semaine</h3>
- ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient upcoming-meal" role="button" tabindex="0" data-recipe-id="${x.rs[0].r.id}" style="cursor:pointer"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div style="flex:1"><div style="font-weight:700">${x.rs.map(y=>escapeHtml(y.r.name)).join(" + ")} <span aria-hidden="true">›</span></div><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
+ ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div style="flex:1"><div class="mealstack">${x.rs.map(y=>`<button type="button" class="upcoming-recipe-link" data-recipe-id="${y.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(y.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
  </div>
  </div>
  <div class="card"><h3>Suggestions avec ce que tu as</h3>${suggestionsHTML()}</div>`;
- document.querySelectorAll(".upcoming-meal").forEach(el=>{
-   const open=()=>showDetail(el.dataset.recipeId);
-   el.addEventListener("click",open);
-   el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}});
+ document.querySelectorAll(".upcoming-recipe-link,.today-recipe-link").forEach(el=>{
+   el.addEventListener("click",()=>showDetail(el.dataset.recipeId));
  });
 }
 function suggestionsHTML(){
