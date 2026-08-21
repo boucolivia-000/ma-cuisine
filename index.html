@@ -218,7 +218,22 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 ],planning:{},checked:{},manual:[],pantry:[],history:[],shoppingWeeks:1,shoppingGeneratedAt:null};
 
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
-if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[];
+function normalizeData(obj){
+ obj=(obj&&typeof obj==="object")?obj:{};
+ return {
+   ...seed,
+   ...obj,
+   recipes:Array.isArray(obj.recipes)?obj.recipes:seed.recipes,
+   planning:(obj.planning&&typeof obj.planning==="object")?obj.planning:{},
+   checked:(obj.checked&&typeof obj.checked==="object")?obj.checked:{},
+   manual:Array.isArray(obj.manual)?obj.manual:[],
+   pantry:Array.isArray(obj.pantry)?obj.pantry:[],
+   history:Array.isArray(obj.history)?obj.history:[],
+   shoppingWeeks:Number(obj.shoppingWeeks)||1,
+   shoppingGeneratedAt:obj.shoppingGeneratedAt||null
+ };
+}
+data=normalizeData(data);
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
@@ -264,8 +279,7 @@ async function loadRemote(){
  const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
  if(remoteHasContent && Object.keys(remote).length>1){
    isApplyingRemote=true;
-   data={...seed,...remote};
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   data=normalizeData(remote);
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
  }else{
@@ -276,12 +290,33 @@ async function loadRemote(){
  render();
 }
 async function bootAuth(){
- const {data:{session}}=await sb.auth.getSession();
- if(session){
-   currentUser=session.user; $("#authScreen").style.display="none"; $("#app").style.display="";
-   try{await loadRemote()}catch(err){console.error(err);setSyncStatus("⚠ Sync",true);alert(err.message)}
- }else{
-   currentUser=null; $("#app").style.display="none"; $("#authScreen").style.display="grid";
+ try{
+   const {data:{session},error}=await sb.auth.getSession();
+   if(error)throw error;
+   if(session){
+     currentUser=session.user;
+     $("#authScreen").style.display="none";
+     $("#app").style.display="";
+     data=normalizeData(data);
+     render(); // Toujours afficher l'app immédiatement
+     setSyncStatus("☁ Synchronisation…");
+     loadRemote().catch(err=>{
+       console.error(err);
+       setSyncStatus("⚠ Mode local",true);
+     });
+   }else{
+     currentUser=null;
+     $("#app").style.display="none";
+     $("#authScreen").style.display="grid";
+   }
+ }catch(err){
+   console.error(err);
+   // Si Supabase est momentanément indisponible mais qu'une session locale existe mal,
+   // on évite un écran vide.
+   $("#app").style.display="";
+   data=normalizeData(data);
+   render();
+   setSyncStatus("⚠ Mode local",true);
  }
 }
 
@@ -324,7 +359,6 @@ function home(){
  </div>
  <div class="card" style="margin-top:13px"><h3>À venir cette semaine</h3>
  ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient upcoming-meal" role="button" tabindex="0" data-recipe-id="${x.rs[0].r.id}" style="cursor:pointer"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div style="flex:1"><div style="font-weight:700">${x.rs.map(y=>escapeHtml(y.r.name)).join(" + ")} <span aria-hidden="true">›</span></div><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
- </div>
  </div>
  <div class="card"><h3>Suggestions avec ce que tu as</h3>${suggestionsHTML()}</div>`;
  document.querySelectorAll(".upcoming-meal").forEach(el=>{
@@ -518,8 +552,7 @@ sb.channel("nout-kaz-shared")
    const incoming=payload.new.data||{};
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
-   data={...seed,...incoming};
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   data=normalizeData(incoming);
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
    setSyncStatus("✓ Mis à jour");
@@ -534,8 +567,7 @@ setInterval(async()=>{
    if(error||!row)return;
    const incoming=row.data||{};
    if(JSON.stringify(incoming)!==JSON.stringify(data)){
-     isApplyingRemote=true;data={...seed,...incoming};
-     if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+     isApplyingRemote=true;data=normalizeData(incoming);
      localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
    }
  }catch(e){}
