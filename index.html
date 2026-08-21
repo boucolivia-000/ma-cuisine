@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#4f6f52">
+  <title>Ma Cuisine</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root{--bg:#f7f1e8;--card:#fffaf3;--green:#4f6f52;--orange:#c66a2b;--text:#1f2a20;--muted:#77736c;--line:#e6dbce}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}
+    #app{max-width:760px;margin:auto;min-height:100vh;padding-bottom:84px}
+    header{display:flex;justify-content:space-between;align-items:center;padding:22px 18px 10px}
+    h1{margin:0;font-size:28px} header p{margin:4px 0 0;color:var(--muted)}
+    main{padding:8px 16px 24px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 8px 24px rgba(60,45,30,.07)}
+    .primary,.secondary,.icon{border:0;border-radius:14px;padding:12px 16px;font:inherit;cursor:pointer}
+    .primary{background:var(--green);color:white}.secondary{background:#eee5d9}.icon{width:44px;height:44px;padding:0;border-radius:50%;background:var(--green);color:white;font-size:24px}
+    nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(760px,100%);display:grid;grid-template-columns:repeat(4,1fr);background:#fffaf5;border-top:1px solid var(--line);padding:8px}
+    nav button{border:0;background:none;padding:7px;color:#6f6b65}nav button.active{color:var(--green);font-weight:700}
+    nav span{display:block;font-size:20px}.search,input,textarea,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:13px;background:white;font:inherit}
+    .search{margin-bottom:12px}.recipe{display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center}.thumb{width:58px;height:58px;border-radius:16px;background:#efc47f;display:grid;place-items:center;font-size:28px}
+    .recipe h3{margin:0 0 4px}.muted{color:var(--muted);font-size:13px}.rowbtn{border:0;background:none;font-size:18px;cursor:pointer}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tile{border:0;border-radius:18px;padding:20px;text-align:left;background:#f0dcc1}.tile.green{background:var(--green);color:white}
+    .week{display:grid;grid-template-columns:68px 1fr 1fr;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:white}.week>div{padding:10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:52px}.week>div:nth-child(3n){border-right:0}.head{font-weight:700;text-align:center;background:#f1ede7}.meal{font-size:12px;cursor:pointer}.chip{background:#eaf1e7;border-radius:10px;padding:6px}
+    .shop{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eee5da}.shop input{width:20px}.done{text-decoration:line-through;color:#999}
+    dialog{border:0;border-radius:22px;background:var(--card);width:min(560px,92vw);padding:0}dialog::backdrop{background:rgba(0,0,0,.35)}dialog form{padding:20px}label{display:block;margin:12px 0;font-weight:600}label input,label textarea,label select{margin-top:6px}.dialog-head,.dialog-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.empty{text-align:center;color:var(--muted);padding:28px}
+  </style>
+</head>
+<body>
+<div id="app">
+  <header><div><h1 id="title">Accueil</h1><p id="subtitle">Que préparons-nous aujourd'hui ?</p></div><button class="icon" id="add">＋</button></header>
+  <main id="view"></main>
+  <nav>
+    <button data-v="home" class="active"><span>⌂</span>Accueil</button>
+    <button data-v="recipes"><span>▤</span>Recettes</button>
+    <button data-v="planning"><span>▦</span>Planning</button>
+    <button data-v="shopping"><span>🛒</span>Courses</button>
+  </nav>
+</div>
+
+<dialog id="recipeDialog">
+<form id="recipeForm">
+  <div class="dialog-head"><h2 id="formTitle">Ajouter une recette</h2><button type="button" class="secondary" onclick="recipeDialog.close()">✕</button></div>
+  <input type="hidden" id="rid">
+  <label>Nom<input id="rname" required></label>
+  <div class="grid2">
+    <label>Personnes<input id="rserv" type="number" min="1" value="2" required></label>
+    <label>Temps (min)<input id="rtime" type="number" min="1" value="30" required></label>
+  </div>
+  <label>Catégorie<select id="rcat"><option>Plat</option><option>Entrée</option><option>Dessert</option><option>Petit-déjeuner</option><option>Autre</option></select></label>
+  <label>Ingrédients<textarea id="ring" rows="7" required placeholder="2|pièce|oignon|Fruits & légumes&#10;200|g|champignons|Fruits & légumes"></textarea></label>
+  <p class="muted">Une ligne par ingrédient : quantité | unité | nom | rayon</p>
+  <label>Étapes<textarea id="rsteps" rows="5" placeholder="Une étape par ligne"></textarea></label>
+  <div class="dialog-actions"><button type="button" class="secondary" onclick="recipeDialog.close()">Annuler</button><button class="primary">Enregistrer</button></div>
+</form>
+</dialog>
+
+<dialog id="mealDialog">
+<form id="mealForm">
+  <div class="dialog-head"><h2>Ajouter un repas</h2><button type="button" class="secondary" onclick="mealDialog.close()">✕</button></div>
+  <input type="hidden" id="mday">
+  <label>Moment<select id="mslot"><option value="midi">Midi</option><option value="soir">Soir</option></select></label>
+  <label>Recette<select id="mrecipe"></select></label>
+  <div class="dialog-actions"><button type="button" class="secondary" onclick="mealDialog.close()">Annuler</button><button class="primary">Ajouter</button></div>
+</form>
+</dialog>
+
+<script>
+const KEY="maCuisineV1";
+const seed={recipes:[
+{id:"r1",name:"Pâtes à la tomate et basilic",servings:2,time:25,category:"Plat",ingredients:[{qty:200,unit:"g",name:"pâtes",section:"Épicerie"},{qty:400,unit:"g",name:"tomates concassées",section:"Épicerie"},{qty:1,unit:"pièce",name:"oignon",section:"Fruits & légumes"},{qty:2,unit:"gousse",name:"ail",section:"Fruits & légumes"}],steps:["Émincer l'oignon et l'ail.","Faire revenir.","Ajouter les tomates.","Cuire les pâtes et mélanger."]},
+{id:"r2",name:"Curry de légumes",servings:2,time:35,category:"Plat",ingredients:[{qty:1,unit:"pièce",name:"courgette",section:"Fruits & légumes"},{qty:2,unit:"pièce",name:"carotte",section:"Fruits & légumes"},{qty:1,unit:"boîte",name:"lait de coco",section:"Épicerie"}],steps:["Couper les légumes.","Faire revenir.","Ajouter le lait de coco.","Laisser mijoter."]}
+],planning:{},checked:{},manual:[]};
+
+let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed)), current="home";
+const view=document.querySelector("#view"), title=document.querySelector("#title"), subtitle=document.querySelector("#subtitle");
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function uid(){return "r"+Math.random().toString(36).slice(2,9)}
+function weekDates(){let d=new Date(),n=(d.getDay()+6)%7,m=new Date(d);m.setDate(d.getDate()-n);m.setHours(0,0,0,0);return Array.from({length:7},(_,i)=>{let x=new Date(m);x.setDate(m.getDate()+i);return x})}
+function key(d){return d.toISOString().slice(0,10)}
+function rn(id){return data.recipes.find(r=>r.id===id)?.name||""}
+function head(t,s){title.textContent=t;subtitle.textContent=s}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{current=b.dataset.v;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));render()});
+document.querySelector("#add").onclick=()=>openRecipe();
+
+function render(){
+ if(current==="home") home();
+ if(current==="recipes") recipes();
+ if(current==="planning") planning();
+ if(current==="shopping") shopping();
+}
+function home(){
+ head("Bonjour ! 👋","Que préparons-nous aujourd'hui ?");
+ let upcoming=[];
+ weekDates().forEach(d=>{let p=data.planning[key(d)]||{};["midi","soir"].forEach(s=>{if(p[s]) upcoming.push([d,s,rn(p[s])])})});
+ view.innerHTML=`<div class="card"><h2>Cette semaine</h2><p class="muted">${upcoming.length?upcoming.length+" repas planifié(s)":"Aucun repas planifié"}</p><div class="actions"><button class="tile green" onclick="go('shopping')">🛒<br><b>Voir les courses</b></button><button class="tile" onclick="openRecipe()">＋<br><b>Ajouter une recette</b></button></div></div>
+ <div class="card"><h3>À venir</h3>${upcoming.length?upcoming.slice(0,6).map(x=>`<p><b>${x[0].toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</b> · ${x[1]} — ${x[2]}</p>`).join(""):`<div class="empty">Ajoute des repas dans le planning.</div>`}</div>`;
+}
+window.go=v=>{current=v;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));render()}
+function recipes(){
+ head("Recettes","Ton carnet de cuisine");
+ view.innerHTML=`<input class="search" id="search" placeholder="🔎 Rechercher une recette..."><div id="rlist"></div>`;
+ search.oninput=()=>listRecipes(search.value);listRecipes("");
+}
+function listRecipes(q){
+ let arr=data.recipes.filter(r=>r.name.toLowerCase().includes(q.toLowerCase()));
+ rlist.innerHTML=arr.length?arr.map(r=>`<div class="card recipe"><div class="thumb">🍲</div><div><h3>${r.name}</h3><div class="muted">${r.time} min · ${r.servings} pers. · ${r.category}</div></div><div><button class="rowbtn" onclick="editRecipe('${r.id}')">✎</button><button class="rowbtn" onclick="delRecipe('${r.id}')">🗑</button></div></div>`).join(""):`<div class="empty">Aucune recette</div>`;
+}
+window.openRecipe=function(r=null){
+ formTitle.textContent=r?"Modifier la recette":"Ajouter une recette";rid.value=r?.id||"";rname.value=r?.name||"";rserv.value=r?.servings||2;rtime.value=r?.time||30;rcat.value=r?.category||"Plat";
+ ring.value=r?r.ingredients.map(i=>`${i.qty}|${i.unit}|${i.name}|${i.section}`).join("\n"):"";rsteps.value=r?r.steps.join("\n"):"";recipeDialog.showModal();
+}
+window.editRecipe=id=>openRecipe(data.recipes.find(r=>r.id===id));
+window.delRecipe=id=>{if(confirm("Supprimer cette recette ?")){data.recipes=data.recipes.filter(r=>r.id!==id);save()}};
+recipeForm.onsubmit=e=>{e.preventDefault();let id=rid.value||uid();let ingredients=ring.value.split("\n").filter(Boolean).map(l=>{let [qty,unit,name,section]=l.split("|").map(s=>s.trim());return{qty:Number(qty)||0,unit,name,section:section||"Autre"}});let obj={id,name:rname.value.trim(),servings:+rserv.value,time:+rtime.value,category:rcat.value,ingredients,steps:rsteps.value.split("\n").filter(Boolean)};let i=data.recipes.findIndex(r=>r.id===id);i>=0?data.recipes[i]=obj:data.recipes.push(obj);recipeDialog.close();save()};
+
+function planning(){
+ head("Planning","Organise les repas de la semaine");
+ let cells=`<div class="head"></div><div class="head">Midi</div><div class="head">Soir</div>`;
+ weekDates().forEach(d=>{let k=key(d),p=data.planning[k]||{};cells+=`<div><b>${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</b></div><div class="meal" onclick="openMeal('${k}','midi')">${p.midi?`<div class="chip">${rn(p.midi)}</div>`:"＋ Ajouter"}</div><div class="meal" onclick="openMeal('${k}','soir')">${p.soir?`<div class="chip">${rn(p.soir)}</div>`:"＋ Ajouter"}</div>`});
+ view.innerHTML=`<div class="card"><div class="week">${cells}</div></div>`;
+}
+window.openMeal=(d,s)=>{mday.value=d;mslot.value=s;mrecipe.innerHTML=data.recipes.map(r=>`<option value="${r.id}">${r.name}</option>`).join("");mealDialog.showModal()};
+mealForm.onsubmit=e=>{e.preventDefault();data.planning[mday.value]=data.planning[mday.value]||{};data.planning[mday.value][mslot.value]=mrecipe.value;mealDialog.close();save()};
+
+function shopping(){
+ head("Courses","Liste calculée automatiquement");
+ let m={};weekDates().forEach(d=>{let p=data.planning[key(d)]||{};["midi","soir"].forEach(s=>{let r=data.recipes.find(x=>x.id===p[s]);if(r)r.ingredients.forEach(i=>{let k=[i.name.toLowerCase(),i.unit,i.section].join("|");if(!m[k])m[k]={...i,qty:0};m[k].qty+=+i.qty})})});
+ let groups={};Object.values(m).forEach(i=>(groups[i.section]??=[]).push(i));
+ view.innerHTML=Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card"><h3>${sec}</h3>${arr.map(i=>{let k=[i.name.toLowerCase(),i.unit,i.section].join("|"),c=!!data.checked[k];return`<label class="shop ${c?'done':''}"><input type="checkbox" ${c?'checked':''} onchange="checkItem('${encodeURIComponent(k)}',this.checked)"><span>${i.qty} ${i.unit} ${i.name}</span></label>`}).join("")}</div>`).join(""):`<div class="card empty">Planifie des repas pour générer la liste de courses.</div>`;
+}
+window.checkItem=(k,v)=>{data.checked[decodeURIComponent(k)]=v;localStorage.setItem(KEY,JSON.stringify(data));shopping()}
+render();
+
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+</script>
+</body>
+</html>

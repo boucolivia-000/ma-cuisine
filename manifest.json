@@ -1,0 +1,9 @@
+{
+  "name": "Ma Cuisine",
+  "short_name": "Ma Cuisine",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f1e8",
+  "theme_color": "#4f6f52",
+  "icons": []
+}
