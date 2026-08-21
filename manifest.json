@@ -1,7 +1,7 @@
 {
-  "name": "Ma Cuisine",
-  "short_name": "Ma Cuisine",
-  "description": "Recettes, planning de repas et liste de courses.",
+  "name": "Nout’ Kaz",
+  "short_name": "Nout’ Kaz",
+  "description": "Recettes, planning des repas et courses du foyer.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,10 +9,16 @@
   "theme_color": "#4f6f52",
   "icons": [
     {
+      "src": "nout-kaz-icon.png",
+      "sizes": "1536x1536",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
