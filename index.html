@@ -323,7 +323,7 @@ function home(){
   <button class="quick" onclick="openRecipe()">＋<br><br><b>Ajouter une<br>recette</b></button>
  </div>
  <div class="card" style="margin-top:13px"><h3>À venir cette semaine</h3>
- ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div><b>${x.rs.map(y=>escapeHtml(y.r.name)).join(" + ")}</b><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
+ ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div style="flex:1"><div>${x.rs.map(y=>`<button class="rowbtn" style="display:block;padding:3px 0;text-align:left;font-weight:700;color:var(--text)" onclick="showDetail('${y.r.id}')">${escapeHtml(y.r.name)} ›</button>`).join("")}</div><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
  </div>
  <div class="card"><h3>Suggestions avec ce que tu as</h3>${suggestionsHTML()}</div>`;
 }
