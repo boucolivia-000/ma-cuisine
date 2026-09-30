@@ -222,7 +222,7 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
 if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[];
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
-let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false;
+let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
 
 function setSyncStatus(text,offline=false){
@@ -246,6 +246,7 @@ async function pushRemote(){
      .update({data:payload,updated_at:new Date().toISOString()})
      .eq("household_uuid",householdUuid);
    if(error)throw error;
+   lastRemoteUpdatedAt=payload._sync_updated_at;
    setSyncStatus("✓ Synchronisé");
  }catch(err){
    console.error(err); setSyncStatus("⚠ Hors ligne",true);
@@ -262,6 +263,7 @@ async function loadRemote(){
  if(error)throw error;
  if(!row)throw new Error("Les données partagées Nout’ Kaz sont introuvables.");
  remoteRowId=row.id;
+ lastRemoteUpdatedAt=row.updated_at||null;
  const remote=row.data||{};
  const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
  if(remoteHasContent && Object.keys(remote).length>1){
@@ -535,6 +537,7 @@ sb.channel("nout-kaz-shared")
  .on("postgres_changes",{event:"UPDATE",schema:"public",table:"nout_kaz_data"},payload=>{
    if(!householdUuid || payload.new.household_uuid!==householdUuid)return;
    const incoming=payload.new.data||{};
+   lastRemoteUpdatedAt=payload.new.updated_at||lastRemoteUpdatedAt;
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
    data={...seed,...incoming};
@@ -545,12 +548,20 @@ sb.channel("nout-kaz-shared")
    render();
  }).subscribe();
 
-// Fallback refresh every 20 seconds if realtime isn't enabled for the table.
+// Realtime handles normal two-phone synchronization.
+// Low-traffic fallback: every 10 minutes, only while the app is visible.
+// First fetch only updated_at; download full data only when it changed.
 setInterval(async()=>{
- if(!currentUser||!householdUuid)return;
+ if(!currentUser||!householdUuid||document.visibilityState!=="visible")return;
  try{
-   const {data:row,error}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
+   const {data:meta,error:metaError}=await sb.from("nout_kaz_data")
+     .select("updated_at").eq("household_uuid",householdUuid).maybeSingle();
+   if(metaError||!meta)return;
+   if(lastRemoteUpdatedAt && meta.updated_at===lastRemoteUpdatedAt)return;
+   const {data:row,error}=await sb.from("nout_kaz_data")
+     .select("data,updated_at").eq("household_uuid",householdUuid).maybeSingle();
    if(error||!row)return;
+   lastRemoteUpdatedAt=row.updated_at||null;
    const incoming=row.data||{};
    if(JSON.stringify(incoming)!==JSON.stringify(data)){
      isApplyingRemote=true;data={...seed,...incoming};
@@ -558,7 +569,7 @@ setInterval(async()=>{
      localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
    }
  }catch(e){}
-},20000);
+},600000);
 
 bootAuth();
 if("serviceWorker" in navigator){
