@@ -614,13 +614,43 @@ function shopping(){
  drawShop();
 }
 window.setShopTab=t=>{shoppingTab=t;drawShop()};
+function shoppingUnitInfo(unit){
+ let u=normalize(unit).replace(/\./g,"").trim();
+ const map={
+  "g":{family:"mass",factor:1,label:"g"},"gr":{family:"mass",factor:1,label:"g"},"gramme":{family:"mass",factor:1,label:"g"},"grammes":{family:"mass",factor:1,label:"g"},
+  "kg":{family:"mass",factor:1000,label:"g"},"kilogramme":{family:"mass",factor:1000,label:"g"},"kilogrammes":{family:"mass",factor:1000,label:"g"},
+  "ml":{family:"volume",factor:1,label:"ml"},"millilitre":{family:"volume",factor:1,label:"ml"},"millilitres":{family:"volume",factor:1,label:"ml"},
+  "cl":{family:"volume",factor:10,label:"ml"},"centilitre":{family:"volume",factor:10,label:"ml"},"centilitres":{family:"volume",factor:10,label:"ml"},
+  "l":{family:"volume",factor:1000,label:"ml"},"litre":{family:"volume",factor:1000,label:"ml"},"litres":{family:"volume",factor:1000,label:"ml"}
+ };
+ return map[u]||{family:"unit:"+u,factor:1,label:unit||""};
+}
+function shoppingQtyDisplay(qty,family,label){
+ if(family==="mass"){
+   if(qty>=1000)return `${fmtNum(qty/1000)} kg`;
+   return `${fmtNum(qty)} g`;
+ }
+ if(family==="volume"){
+   if(qty>=1000)return `${fmtNum(qty/1000)} L`;
+   if(qty>=100 && qty%10===0)return `${fmtNum(qty/10)} cl`;
+   return `${fmtNum(qty)} ml`;
+ }
+ return `${fmtNum(qty)} ${label||""}`.trim();
+}
 function plannedIngredients(weeks,startOffset=0){
- let out={};
+ let grouped={};
  for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
-   let nk=shoppingNameKey(i.name),uk=normalize(i.unit),sk=normalize(i.section),k=nk+"|"+uk+"|"+sk;
-   if(!out[k])out[k]={...i,name:shoppingDisplayName(i.name),qty:0,key:k};
-   out[k].qty+=i.qty*fac;
+   let nk=shoppingNameKey(i.name),sk=normalize(i.section),gk=nk+"|"+sk,ui=shoppingUnitInfo(i.unit);
+   if(!grouped[gk])grouped[gk]={name:shoppingDisplayName(i.name),section:i.section||"Autre",parts:{}};
+   let pk=ui.family;
+   if(!grouped[gk].parts[pk])grouped[gk].parts[pk]={qty:0,family:ui.family,label:ui.label};
+   grouped[gk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
  })})})});
+ let out={};
+ Object.entries(grouped).forEach(([gk,g])=>{
+   let parts=Object.values(g.parts),key=gk;
+   out[key]={name:g.name,section:g.section,qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
+ });
  return out;
 }
 function pantryHas(i){return data.pantry.some(p=>shoppingNameKey(p.name)===shoppingNameKey(i.name))}
@@ -647,7 +677,7 @@ function drawShop(){
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>{let ck=!!data.checked[i.key];return `<label class="shoprow ${ck?"done":""}"><input type="checkbox" ${ck?"checked":""} onchange="checkShop('${encodeURIComponent(i.key)}',this.checked)"><span style="flex:1">${fmtNum(i.qty)} ${escapeHtml(i.unit||"")} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</label>`}).join("")}</div>`).join(""):'<div class="card empty">Aucun article. Planifie des repas ou ajoute un article manuellement.</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>{let ck=!!data.checked[i.key];return `<label class="shoprow ${ck?"done":""}"><input type="checkbox" ${ck?"checked":""} onchange="checkShop('${encodeURIComponent(i.key)}',this.checked)"><span style="flex:1">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</label>`}).join("")}</div>`).join(""):'<div class="card empty">Aucun article. Planifie des repas ou ajoute un article manuellement.</div>'}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
  <button class="chipfilter" onclick="quickManual('Entretien')">🧹 Entretien</button>

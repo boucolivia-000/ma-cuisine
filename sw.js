@@ -1,4 +1,4 @@
-const CACHE="nout-kaz-v4-4-2-courses-semaines";
+const CACHE="nout-kaz-v4-4-3-unites-courses";
 const STATIC=["./manifest.json","./nout-kaz-icon.png"];
 
 self.addEventListener("install",event=>{
