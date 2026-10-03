@@ -1,4 +1,4 @@
-const CACHE="nout-kaz-v4-6-0-da-reunion-planning";
+const CACHE="nout-kaz-v4-6-2-da-sobre";
 const STATIC=["./manifest.json","./nout-kaz-icon.png"];
 
 self.addEventListener("install",event=>{

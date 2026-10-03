@@ -170,6 +170,67 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(239,139,69,.22)!i
 .letter-pills button{min-width:38px;border:1px solid #ead9ca;background:#fffaf4;border-radius:999px;padding:8px 10px;color:#4a5d45}
 .letter-pills button.active{background:#fff0d1;border-color:#ef8b45;color:#b65e31;font-weight:800}
 nav button.active{color:#df6d4d!important}
+
+/* V4.6.1 — Accueil dans la DA aquarelle */
+.home-hero{position:relative;overflow:hidden;border:0!important;background:linear-gradient(135deg,#fff3e1,#fde8ea 52%,#edf3df)!important}
+.home-hero:before{content:"";position:absolute;width:150px;height:150px;right:-45px;top:-50px;background:radial-gradient(circle,#f4b85d 0 16%,#e9905b 17% 27%,transparent 28%);opacity:.24}
+.home-hero:after{content:"🌺";position:absolute;right:16px;top:13px;font-size:35px;opacity:.72;transform:rotate(12deg)}
+.home-hero h2,.home-upcoming h3{color:#355238}
+.home-empty{padding:24px 10px;text-align:center;color:#71806c;background:rgba(255,255,255,.38);border-radius:15px}
+.home-quick{position:relative;overflow:hidden;border:1px solid rgba(226,147,91,.18)!important;box-shadow:0 7px 18px rgba(95,75,54,.08)}
+.home-quick.shop{background:linear-gradient(145deg,#eaf1dd,#d9e6c8)!important;color:#355238!important}
+.home-quick.add{background:linear-gradient(145deg,#fff0c9,#f8d8ad)!important;color:#60492e!important}
+.home-quick .home-icon{font-size:27px;display:block;margin-bottom:16px}
+.home-quick.shop:after{content:"";position:absolute;right:-15px;bottom:-25px;width:70px;height:70px;border-radius:50%;background:rgba(117,151,96,.12)}
+.home-quick.add:after{content:"";position:absolute;right:-14px;top:-20px;width:72px;height:72px;border-radius:50%;background:rgba(238,132,80,.12)}
+.home-upcoming{background:linear-gradient(160deg,#fffdfa,#fff7ef)!important;border-color:#efdccf!important}
+.home-upcoming .badge{background:#ffe2aa!important}
+.home-suggest{background:linear-gradient(145deg,#f2f5e8,#fffaf1)!important;border-color:#dfe5cc!important}
+.home-section-mark{display:inline-block;margin-right:7px}
+
+/* V4.6.2 — DA aquarelle sobre */
+header,.topbar{
+ background:rgba(255,252,247,.96)!important;
+ border-bottom:1px solid #eee0d5!important;
+}
+header h1,.topbar h1{color:#355238!important}
+.home-banner{
+ min-height:138px;border-radius:0 0 22px 22px;margin:-1px -1px 14px;
+ background:url("banner-kitchen.webp") center 52%/cover no-repeat;
+ position:relative;overflow:hidden;border:0!important;
+}
+.home-banner:after{
+ content:"";position:absolute;inset:0;
+ background:linear-gradient(90deg,rgba(255,250,242,.10),rgba(255,250,242,.02),rgba(255,250,242,.10));
+ pointer-events:none;
+}
+.home-hero{
+ position:relative;overflow:hidden;border:1px solid #eadfd8!important;
+ background:#fffdfa!important;box-shadow:0 5px 15px rgba(84,72,59,.05)!important;
+}
+.home-hero:before,.home-hero:after{display:none!important}
+.home-hero h2,.home-upcoming h3{color:#355238!important}
+.home-empty{padding:20px 8px;text-align:center;color:#788273;background:transparent!important;border-radius:0}
+.home-quick{
+ min-height:128px;border-radius:20px!important;
+ box-shadow:0 6px 16px rgba(88,70,52,.07)!important;
+ border:1px solid rgba(225,204,187,.55)!important;
+}
+.home-quick.shop{
+ background:linear-gradient(145deg,#edf3e6,#e1ecd7)!important;color:#355238!important;
+}
+.home-quick.add{
+ background:linear-gradient(145deg,#fff4d8,#f9dfba)!important;color:#60492e!important;
+}
+.home-quick:after{opacity:.35}
+.home-quick .home-icon{font-size:25px;display:block;margin-bottom:12px}
+.home-upcoming{
+ background:#fffdfa!important;border:1px solid #eadfd8!important;
+ box-shadow:0 5px 15px rgba(84,72,59,.05)!important;
+}
+.home-upcoming .section-title,.home-upcoming h3{background:transparent!important}
+.home-suggest{background:#fbfcf6!important;border-color:#e2e6d7!important}
+.home-section-mark{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -440,19 +501,19 @@ function home(){
  let today=dateKey(new Date()), p=data.planning[today]||{}, upcoming=[];
  weekDates(0).forEach(d=>{let q=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{if(q[slot]){let rs=mealRecipes(q[slot]);if(rs.length)upcoming.push({d,slot,rs,serv:q[slot].servings||rs[0].r.servings})}})});
  let tod=[["midi",p.midi],["soir",p.soir]].filter(x=>x[1]).map(([slot,m])=>{let rs=mealRecipes(m);return rs.length?`<div class="ingredient"><b>${slot==="midi"?"Midi":"Soir"}</b><div style="flex:1" class="mealstack">${rs.map(x=>`<button type="button" class="today-recipe-link" data-recipe-id="${x.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div></div>`:""}).join("");
- view.innerHTML=`
- <div class="card">
-   <h2>Aujourd'hui</h2>${tod||'<div class="empty">Aucun repas prévu aujourd’hui.</div>'}
+ view.innerHTML=`<div class="home-banner" aria-hidden="true"></div>
+ <div class="card home-hero">
+   <h2>Aujourd’hui</h2>${tod||'<div class="home-empty">Aucun repas prévu aujourd’hui.</div>'}
  </div>
  <div class="quickgrid">
-  <button class="quick green" onclick="go('shopping')">🛒<br><br><b>Voir la liste<br>de courses</b></button>
-  <button class="quick" onclick="openRecipe()">＋<br><br><b>Ajouter une<br>recette</b></button>
+  <button class="quick home-quick shop" onclick="go('shopping')"><span class="home-icon">🛒</span><b>Voir la liste<br>de courses</b></button>
+  <button class="quick home-quick add" onclick="openRecipe()"><span class="home-icon">＋</span><b>Ajouter une<br>recette</b></button>
  </div>
- <div class="card" style="margin-top:13px"><h3>À venir cette semaine</h3>
+ <div class="card home-upcoming" style="margin-top:13px"><h3>À venir cette semaine</h3>
  ${upcoming.length?upcoming.slice(0,7).map(x=>`<div class="ingredient"><span class="badge">${x.d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"})}</span><div style="flex:1"><div class="mealstack">${x.rs.map(y=>`<button type="button" class="upcoming-recipe-link" data-recipe-id="${y.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(y.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div><div class="muted">${x.slot} · ${x.serv} pers.</div></div></div>`).join(""):'<div class="empty">Ajoute tes repas dans le planning.</div>'}
  </div>
  </div>
- <div class="card"><h3>Suggestions avec ce que tu as</h3>${suggestionsHTML()}</div>`;
+ <div class="card home-suggest"><h3>Suggestions avec ce que tu as</h3>${suggestionsHTML()}</div>`;
  document.querySelectorAll(".upcoming-recipe-link,.today-recipe-link").forEach(el=>{
    el.addEventListener("click",()=>showDetail(el.dataset.recipeId));
  });
