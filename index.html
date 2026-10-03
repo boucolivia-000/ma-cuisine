@@ -146,6 +146,30 @@ header,.topbar{background:rgba(255,253,249,.90)!important;backdrop-filter:blur(1
  font-size:12px;line-height:1.05;font-weight:800;color:#344a31;
 }
 @media(max-width:390px){.category-grid{gap:6px}.category-tile .catlabel{font-size:11px}}
+
+/* V4.6.0 — cohérence aquarelle Réunion */
+:root{--sun:#f6bd55;--orange:#ef8b45;--coral:#e86f61;--sage:#9eaf83;--sky:#a9c9dd;--pink:#e99bb2}
+.authscreen{
+ background:linear-gradient(rgba(255,250,244,.18),rgba(255,250,244,.22)),url("login-reunion.webp") center/cover no-repeat!important;
+}
+.authbox{background:rgba(255,252,246,.90)!important;border:1px solid rgba(239,139,69,.24)!important;box-shadow:0 18px 45px rgba(74,65,47,.18)!important;backdrop-filter:blur(8px)}
+.authbox h1{color:#355238!important}.authbox .subtitle{color:#64735d!important}
+input,select,textarea{border-color:#ead9ca!important;background:#fffdfa!important}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(239,139,69,.22)!important;border-color:var(--orange)!important}
+.circle{background:linear-gradient(135deg,#e97962,#f2a044)!important}
+.badge{background:#fff0cf!important;color:#7b5a25!important}
+.notice{background:#f3f5e9!important;border-color:#cbd5ad!important}
+.tabs button.active{color:#d9684c!important;border-color:#ef8b45!important}
+.meal{background:linear-gradient(145deg,#fffdfa,#fff7ec)!important}
+.meal:hover{border-color:#ef9a55!important}
+.mealchoice{border-color:#ead9ca!important;background:#fffdfa!important}
+.mealchoice:has(input:checked){border-color:#ef8b45!important;background:#fff5e8!important}
+#mealCategoryFilters.category-grid{margin:10px 0}
+#mealCategoryFilters .category-tile{min-width:0}
+.letter-pills{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px}
+.letter-pills button{min-width:38px;border:1px solid #ead9ca;background:#fffaf4;border-radius:999px;padding:8px 10px;color:#4a5d45}
+.letter-pills button.active{background:#fff0d1;border-color:#ef8b45;color:#b65e31;font-weight:800}
+nav button.active{color:#df6d4d!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -218,7 +242,8 @@ header,.topbar{background:rgba(255,253,249,.90)!important;backdrop-filter:blur(1
   <label>Nombre de personnes<input id="mserv" type="number" min="1" value="2"></label>
   <label>Recettes</label>
   <div class="muted" style="margin-bottom:8px">Sélectionne une ou plusieurs recettes pour composer le même repas.</div>
-  <div id="mealCategoryFilters" class="chips" style="margin-bottom:10px"></div>
+  <div id="mealCategoryFilters" class="category-grid"></div>
+  <div id="mealLetterFilters" class="letter-pills"></div>
   <div id="mealRecipeChoices"></div>
   <div class="dialogactions"><button type="button" class="soft" id="removeMeal">Retirer le repas</button><button type="button" class="primary" id="saveMealBtn">Enregistrer</button></div>
  </form>
@@ -444,7 +469,7 @@ function recipeCategoryIcon(c){
  return x[c]||"🍴";
 }
 function recipeCategoryArt(c){
- const a={"Petit-déjeuner":"cat-petit-dejeuner.webp","Entrée":"cat-entree.webp","Plat":"cat-plat.webp","Dessert":"cat-dessert.webp","Féculents":"cat-feculents.webp","Protéines":"cat-proteines.webp"};
+ const a={"Petit-déjeuner":"cat-petit-dejeuner.webp","Entrée":"cat-entree.webp","Plat":"cat-plat.webp","Dessert":"cat-dessert.webp","Féculents":"cat-feculents.webp","Protéines":"cat-proteines.webp","Légumes":"cat-legumes.webp","❤️ Favoris":"cat-favoris.webp","Toutes":"cat-toutes.webp"};
  return a[c]||"";
 }
 function categoryTileInner(c){
@@ -455,7 +480,7 @@ function categoryTileInner(c){
 function recipeCategories(){
  const preferred=["Petit-déjeuner","Entrée","Plat","Dessert","Féculents","Protéines","Légumes","Goûter","Boisson","Autre"];
  const found=[...new Set(data.recipes.map(r=>r.category||"Autre"))];
- return ["Toutes","❤️ Favoris",...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
+ return [...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"})),"❤️ Favoris","Toutes"];
 }
 function recipes(){
  head("Recettes","Choisis une catégorie");
@@ -622,20 +647,15 @@ window.saveQuickPlan=()=>{
 };
 function planning(){
  head("Planning","Choisis une catégorie puis une recette à planifier");
- let cats=recipeCategories().filter(c=>c!=="Toutes"&&c!=="❤️ Favoris");
  let cells=`<div class="head"></div><div class="head">Midi</div><div class="head">Soir</div>`;
  weekDates(weekOffset).forEach((d,i)=>{let k=dateKey(d),p=data.planning[k]||{};
    cells+=`<div class="day"><b>${DAYS[i]}</b><br>${d.getDate()}</div>${["midi","soir"].map(slot=>{
     let m=p[slot],rs=mealRecipes(m);return `<div class="meal" onclick="openMeal('${k}','${slot}')">${rs.length?`<div class="mealstack">${rs.map(x=>`<button type="button" class="mealchip planning-recipe-link" onclick="event.stopPropagation();showDetail('${x.r.id}')" style="border:0;cursor:pointer;text-align:left">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}<div class="muted">${m.servings||rs[0].r.servings} pers. · toucher autour pour modifier le repas</div></div>`:"＋ Ajouter"}</div>`}).join("")}`;
  });
- view.innerHTML=`<div class="card"><h3 style="margin-top:0">Ajouter une recette</h3><div class="muted">Comme dans Recettes : choisis d’abord une catégorie.</div>
- <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile plan-cat" data-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("")}</div>
- <div id="planCategoryPanel" class="plan-category-panel"></div></div>
- <div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
+ view.innerHTML=`<div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
  <div class="card"><div class="week">${cells}</div></div>
  <div class="actions2"><button class="soft" onclick="weekOffset=0;planning()">Cette semaine</button><button class="outline" onclick="copyWeek()">Dupliquer la semaine</button></div>
  <div class="card" style="margin-top:13px"><h3>Historique récent</h3>${historyHTML()}</div>`;
- document.querySelectorAll(".plan-cat").forEach(b=>b.onclick=()=>drawPlanningCategory(b.dataset.cat));
 }
 window.drawPlanningCategory=cat=>{
  document.querySelectorAll(".plan-cat").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
@@ -654,24 +674,37 @@ window.openMeal=(k,slot)=>{
  let existing=data.planning[k]?.[slot]; window.mealSelected=new Set(mealItems(existing).map(x=>x.recipeId)); let selected=window.mealSelected;
  let first=mealRecipes(existing)[0]?.r;
  $("#mserv").value=existing?.servings||first?.servings||2;
- const mealCategories=["Toutes",...new Set(data.recipes.map(r=>r.category||"Autre"))];
- let activeMealCategory="Toutes";
+ const mealCategories=recipeCategories();
+ let activeMealCategory="Toutes",activeLetter="";
+ const filteredBase=()=>data.recipes.filter(r=>{
+   if(activeMealCategory==="Toutes")return true;
+   if(activeMealCategory==="❤️ Favoris")return !!r.favorite;
+   return (r.category||"Autre")===activeMealCategory;
+ }).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+ const drawLetters=()=>{
+   let letters=[...new Set(filteredBase().map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+   $("#mealLetterFilters").innerHTML=`<button type="button" class="${activeLetter===""?"active":""}" data-letter="">Toutes</button>${letters.map(l=>`<button type="button" class="${activeLetter===l?"active":""}" data-letter="${l}">${l}</button>`).join("")}`;
+   $("#mealLetterFilters").querySelectorAll("[data-letter]").forEach(btn=>btn.onclick=()=>{
+     document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>selected.add(cb.value));
+     activeLetter=btn.dataset.letter;drawLetters();drawMealRecipes();
+   });
+ };
  const drawMealRecipes=()=>{
-   const recipes=activeMealCategory==="Toutes"?data.recipes:data.recipes.filter(r=>(r.category||"Autre")===activeMealCategory);
+   let recipes=filteredBase().filter(r=>!activeLetter||normalize(r.name).charAt(0).toUpperCase()===activeLetter);
    $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${recipes.map(r=>`<label class="mealchoice">
      <input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}>
      <span class="mini">${imgHTML(r)}</span>
      <span><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span></span>
    </label>`).join("")}</div>`;
  };
- $("#mealCategoryFilters").innerHTML=mealCategories.map(c=>`<button type="button" class="chipfilter ${c==="Toutes"?"active":""}" data-meal-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("");
+ $("#mealCategoryFilters").innerHTML=mealCategories.map(c=>`<button type="button" class="category-tile ${c==="Toutes"?"active":""}" data-meal-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("");
  $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(btn=>btn.onclick=()=>{
    document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>selected.add(cb.value));
-   activeMealCategory=btn.dataset.mealCat;
+   activeMealCategory=btn.dataset.mealCat;activeLetter="";
    $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(b=>b.classList.toggle("active",b===btn));
-   drawMealRecipes();
+   drawLetters();drawMealRecipes();
  });
- drawMealRecipes();
+ drawLetters();drawMealRecipes();
  $("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
 };
 window.saveMealSelection=()=>{
