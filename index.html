@@ -107,6 +107,12 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
 .autherror{color:#9b3b31;font-size:13px;margin-top:10px;min-height:18px}
 .userbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}.recipe{grid-template-columns:63px 1fr auto}.thumb{width:63px;height:63px}}
+
+.category-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 14px}
+.category-tile{aspect-ratio:1.35/1;border:1px solid var(--line);border-radius:18px;background:var(--card);padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;font-weight:800;color:var(--text);cursor:pointer}
+.category-tile .catemoji{font-size:26px}.category-tile.active{outline:2px solid var(--accent)}
+.alpha-row{display:flex;gap:8px;align-items:end;margin:8px 0 14px}.alpha-row label{flex:1}
+.plan-category-panel{margin-top:10px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -183,6 +189,15 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
   <div id="mealRecipeChoices"></div>
   <div class="dialogactions"><button type="button" class="soft" id="removeMeal">Retirer le repas</button><button type="button" class="primary" id="saveMealBtn">Enregistrer</button></div>
  </form>
+</div></dialog>
+
+<dialog id="quickPlanDialog"><div class="dialogbody">
+ <div class="dialoghead"><h2>Planifier la recette</h2><button class="soft" onclick="quickPlanDialog.close()">✕</button></div>
+ <input id="quickRecipeId" type="hidden">
+ <label>Jour<input id="quickPlanDate" type="date"></label>
+ <label>Moment<select id="quickPlanSlot"><option value="midi">Midi</option><option value="soir">Soir</option></select></label>
+ <label>Nombre de personnes<input id="quickPlanServ" type="number" min="1" value="2"></label>
+ <div class="dialogactions"><button type="button" class="soft" onclick="quickPlanDialog.close()">Annuler</button><button type="button" class="primary" onclick="saveQuickPlan()">Ajouter au planning</button></div>
 </div></dialog>
 
 <dialog id="manualDialog"><div class="dialogbody">
@@ -391,24 +406,27 @@ function suggestionsHTML(){
  return scored.slice(0,4).map(x=>`<div class="ingredient" onclick="showDetail('${x.r.id}')" style="cursor:pointer"><b>${escapeHtml(x.r.name)}</b><span class="muted">${x.hits}/${x.total} ingrédients disponibles</span></div>`).join("")||`<div class="muted">Aucune suggestion pour le moment.</div>`;
 }
 
-function recipes(){
- head("Recettes","Classées par catégorie et par ordre alphabétique");
- view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div>
- <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
- <div class="grid2" style="margin:10px 0 14px">
-  <label>Catégorie<select id="recipeCategorySelect"></select></label>
-  <label>Lettre<select id="recipeLetterSelect"></select></label>
- </div>
- <div id="recipeList"></div>`;
+function recipeCategoryIcon(c){
+ const x={"Entrée":"🥗","Plat":"🍽️","Protéines":"🍗","Légumes":"🥦","Féculents":"🍚","Dessert":"🍰","Petit-déjeuner":"☕","Goûter":"🍪","Boisson":"🥤","Autre":"📖","❤️ Favoris":"❤️","Toutes":"📚"};
+ return x[c]||"🍴";
+}
+function recipeCategories(){
  const preferred=["Entrée","Plat","Protéines","Légumes","Féculents","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
  const found=[...new Set(data.recipes.map(r=>r.category||"Autre"))];
- const cats=["Toutes","❤️ Favoris",...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
- $("#recipeCategorySelect").innerHTML=cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
- $("#recipeCategorySelect").value=recipeFilter;
- const letters=[...new Set(data.recipes.map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+ return ["Toutes","❤️ Favoris",...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
+}
+function recipes(){
+ head("Recettes","Choisis une catégorie");
+ const cats=recipeCategories();
+ view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div>
+ <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
+ <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile ${recipeFilter===c?"active":""}" data-cat="${escapeHtml(c)}"><span class="catemoji">${recipeCategoryIcon(c)}</span><span>${escapeHtml(c)}</span></button>`).join("")}</div>
+ <div class="alpha-row"><label>Lettre<select id="recipeLetterSelect"></select></label></div>
+ <div id="recipeList"></div>`;
+ const letters=[...new Set(data.recipes.filter(r=>recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter).map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
  $("#recipeLetterSelect").innerHTML=`<option value="">Toutes les lettres</option>${letters.map(l=>`<option value="${l}">${l}</option>`).join("")}`;
+ document.querySelectorAll(".category-tile").forEach(b=>b.onclick=()=>{recipeFilter=b.dataset.cat;recipes()});
  $("#rsearch").oninput=()=>drawRecipes($("#rsearch").value);
- $("#recipeCategorySelect").onchange=e=>{recipeFilter=e.target.value;drawRecipes($("#rsearch").value)};
  $("#recipeLetterSelect").onchange=()=>drawRecipes($("#rsearch").value);
  drawRecipes("");
 }
@@ -436,7 +454,7 @@ window.showDetail=function(id,mult=1){
  let r=getRecipe(id);if(!r)return;
  let servings=Math.max(1,Math.round(r.servings*mult));
  $("#detailBody").innerHTML=`
- <div class="dialoghead"><button class="soft" onclick="detailDialog.close()">←</button><div><button class="iconbtn" onclick="editRecipe('${r.id}')">✎</button><button class="iconbtn fav" onclick="toggleFavDetail('${r.id}')">${r.favorite?"♥":"♡"}</button></div></div>
+ <div class="dialoghead"><button class="soft" onclick="detailDialog.close()">←</button><div><button class="iconbtn" onclick="editRecipe('${r.id}')">✎</button><button class="iconbtn fav" onclick="toggleFavDetail('${r.id}')">${r.favorite?"♥":"♡"}</button></div></div><button type="button" class="primary" style="width:100%;margin:8px 0 12px" onclick="planRecipeFromDetail('${r.id}')">📅 Planifier cette recette</button>
  <div class="hero">${imgHTML(r)}</div>
  <h2>${escapeHtml(r.name)}</h2>
  <div class="stats"><div class="stat"><b>${r.prep} min</b>Préparation</div><div class="stat"><b>${r.cook} min</b>Cuisson</div><div class="stat"><b>${escapeHtml(r.difficulty)}</b>Difficulté</div><div class="stat"><b>${servings}</b>Personnes</div></div>
@@ -546,18 +564,48 @@ $("#previewImportBtn").onclick=()=>{
  };
 };
 
+window.planRecipeFromDetail=id=>{
+ let r=getRecipe(id);if(!r)return;
+ $("#quickRecipeId").value=id;$("#quickPlanDate").value=dateKey(new Date());$("#quickPlanServ").value=r.servings||2;
+ detailDialog.close();quickPlanDialog.showModal();
+};
+window.saveQuickPlan=()=>{
+ let id=$("#quickRecipeId").value,k=$("#quickPlanDate").value,slot=$("#quickPlanSlot").value,serv=+$("#quickPlanServ").value||2;
+ if(!k)return alert("Choisis un jour.");
+ data.planning[k]??={};
+ let existing=data.planning[k][slot],ids=mealItems(existing).map(x=>x.recipeId);
+ if(!ids.includes(id))ids.push(id);
+ data.planning[k][slot]={recipes:ids.map(recipeId=>({recipeId})),servings:serv};
+ quickPlanDialog.close();save();
+};
 function planning(){
- head("Planning","Organise plusieurs semaines à l'avance");
+ head("Planning","Choisis une catégorie puis une recette à planifier");
+ let cats=recipeCategories().filter(c=>c!=="Toutes"&&c!=="❤️ Favoris");
  let cells=`<div class="head"></div><div class="head">Midi</div><div class="head">Soir</div>`;
  weekDates(weekOffset).forEach((d,i)=>{let k=dateKey(d),p=data.planning[k]||{};
    cells+=`<div class="day"><b>${DAYS[i]}</b><br>${d.getDate()}</div>${["midi","soir"].map(slot=>{
     let m=p[slot],rs=mealRecipes(m);return `<div class="meal" onclick="openMeal('${k}','${slot}')">${rs.length?`<div class="mealstack">${rs.map(x=>`<button type="button" class="mealchip planning-recipe-link" onclick="event.stopPropagation();showDetail('${x.r.id}')" style="border:0;cursor:pointer;text-align:left">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}<div class="muted">${m.servings||rs[0].r.servings} pers. · toucher autour pour modifier le repas</div></div>`:"＋ Ajouter"}</div>`}).join("")}`;
  });
- view.innerHTML=`<div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
+ view.innerHTML=`<div class="card"><h3 style="margin-top:0">Ajouter une recette</h3><div class="muted">Comme dans Recettes : choisis d’abord une catégorie.</div>
+ <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile plan-cat" data-cat="${escapeHtml(c)}"><span class="catemoji">${recipeCategoryIcon(c)}</span><span>${escapeHtml(c)}</span></button>`).join("")}</div>
+ <div id="planCategoryPanel" class="plan-category-panel"></div></div>
+ <div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
  <div class="card"><div class="week">${cells}</div></div>
  <div class="actions2"><button class="soft" onclick="weekOffset=0;planning()">Cette semaine</button><button class="outline" onclick="copyWeek()">Dupliquer la semaine</button></div>
  <div class="card" style="margin-top:13px"><h3>Historique récent</h3>${historyHTML()}</div>`;
+ document.querySelectorAll(".plan-cat").forEach(b=>b.onclick=()=>drawPlanningCategory(b.dataset.cat));
 }
+window.drawPlanningCategory=cat=>{
+ document.querySelectorAll(".plan-cat").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
+ let rs=data.recipes.filter(r=>(r.category||"Autre")===cat).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+ let letters=[...new Set(rs.map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+ $("#planCategoryPanel").innerHTML=`<label>Lettre<select id="planLetter"><option value="">Toutes les lettres</option>${letters.map(l=>`<option>${l}</option>`).join("")}</select></label><div id="planRecipeList"></div>`;
+ const draw=()=>{let l=$("#planLetter").value,show=rs.filter(r=>!l||normalize(r.name).charAt(0).toUpperCase()===l);$("#planRecipeList").innerHTML=show.map(r=>`<button type="button" class="card recipe" style="width:100%;cursor:pointer;text-align:left" onclick="planRecipeFromPlanning('${r.id}')"><div class="thumb">${imgHTML(r)}</div><div><h3>${escapeHtml(r.name)}</h3><div class="muted">Choisir le jour ›</div></div></button>`).join("")||'<div class="empty">Aucune recette.</div>'};
+ $("#planLetter").onchange=draw;draw();
+};
+window.planRecipeFromPlanning=id=>{
+ let r=getRecipe(id);$("#quickRecipeId").value=id;$("#quickPlanDate").value=dateKey(weekDates(weekOffset)[0]);$("#quickPlanServ").value=r?.servings||2;quickPlanDialog.showModal();
+};
 window.changeWeek=n=>{weekOffset+=n;planning()};
 window.openMeal=(k,slot)=>{
  $("#mdate").value=k;$("#mslot").value=slot;
