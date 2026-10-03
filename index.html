@@ -228,7 +228,7 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 ],planning:{},checked:{},manual:[],pantry:[],history:[],shoppingWeeks:1,shoppingGeneratedAt:null};
 
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
-if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[];
+if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[]; if(data.shoppingStartWeek==null)data.shoppingStartWeek=0;
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
@@ -392,25 +392,44 @@ function suggestionsHTML(){
 }
 
 function recipes(){
- head("Recettes","Plats, protéines, légumes, féculents et plus");
- let cats=["Toutes","❤️ Favoris",...new Set(data.recipes.map(r=>r.category))];
- view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div><div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
- <div class="chips">${cats.map(c=>`<button class="chipfilter ${recipeFilter===c?"active":""}" onclick="setFilter('${escapeHtml(c)}')">${escapeHtml(c)}</button>`).join("")}</div>
+ head("Recettes","Classées par catégorie et par ordre alphabétique");
+ view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div>
+ <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
+ <div class="grid2" style="margin:10px 0 14px">
+  <label>Catégorie<select id="recipeCategorySelect"></select></label>
+  <label>Lettre<select id="recipeLetterSelect"></select></label>
+ </div>
  <div id="recipeList"></div>`;
- $("#rsearch").oninput=e=>drawRecipes(e.target.value);drawRecipes("");
+ const preferred=["Entrée","Plat","Protéines","Légumes","Féculents","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
+ const found=[...new Set(data.recipes.map(r=>r.category||"Autre"))];
+ const cats=["Toutes","❤️ Favoris",...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
+ $("#recipeCategorySelect").innerHTML=cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+ $("#recipeCategorySelect").value=recipeFilter;
+ const letters=[...new Set(data.recipes.map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+ $("#recipeLetterSelect").innerHTML=`<option value="">Toutes les lettres</option>${letters.map(l=>`<option value="${l}">${l}</option>`).join("")}`;
+ $("#rsearch").oninput=()=>drawRecipes($("#rsearch").value);
+ $("#recipeCategorySelect").onchange=e=>{recipeFilter=e.target.value;drawRecipes($("#rsearch").value)};
+ $("#recipeLetterSelect").onchange=()=>drawRecipes($("#rsearch").value);
+ drawRecipes("");
 }
 window.setFilter=c=>{recipeFilter=c;recipes()};
 function drawRecipes(q){
- let nq=normalize(q);
+ let nq=normalize(q),letter=$("#recipeLetterSelect")?.value||"";
  let arr=data.recipes.filter(r=>{
-  let ok=recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||r.category===recipeFilter;
-  let text=normalize(r.name+" "+r.category+" "+r.ingredients.map(i=>i.name).join(" "));
-  return ok&&(!nq||text.includes(nq));
- });
- $("#recipeList").innerHTML=arr.length?arr.map(r=>`<div class="card recipe" onclick="showDetail('${r.id}')" style="cursor:pointer">
+  let ok=recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter;
+  let text=normalize(r.name+" "+(r.category||"Autre")+" "+r.ingredients.map(i=>i.name).join(" "));
+  let first=normalize(r.name).charAt(0).toUpperCase();
+  return ok&&(!nq||text.includes(nq))&&(!letter||first===letter);
+ }).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+ if(!arr.length){$("#recipeList").innerHTML=`<div class="empty">Aucune recette trouvée.</div>`;return}
+ const preferred=["Entrée","Plat","Protéines","Légumes","Féculents","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
+ let groups={};arr.forEach(r=>(groups[r.category||"Autre"]??=[]).push(r));
+ let ordered=[...preferred.filter(c=>groups[c]),...Object.keys(groups).filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
+ $("#recipeList").innerHTML=ordered.map(cat=>`<section class="recipe-category"><div class="section-title"><h2 style="margin:0">${escapeHtml(cat)}</h2><span class="badge">${groups[cat].length}</span></div>
+ ${groups[cat].map(r=>`<div class="card recipe" onclick="showDetail('${r.id}')" style="cursor:pointer">
   <div class="thumb">${imgHTML(r)}</div>
-  <div><h3>${escapeHtml(r.name)}</h3><div class="muted">${r.prep+r.cook} min · ${r.servings} pers. · ${escapeHtml(r.category)}</div></div>
-  <button class="iconbtn fav" onclick="event.stopPropagation();toggleFav('${r.id}')">${r.favorite?"♥":"♡"}</button></div>`).join(""):`<div class="empty">Aucune recette trouvée.</div>`;
+  <div><h3>${escapeHtml(r.name)}</h3><div class="muted">${r.prep+r.cook} min · ${r.servings} pers.</div></div>
+  <button class="iconbtn fav" onclick="event.stopPropagation();toggleFav('${r.id}')">${r.favorite?"♥":"♡"}</button></div>`).join("")}</section>`).join("");
 }
 window.toggleFav=id=>{let r=getRecipe(id);r.favorite=!r.favorite;save()};
 window.showDetail=function(id,mult=1){
@@ -595,9 +614,9 @@ function shopping(){
  drawShop();
 }
 window.setShopTab=t=>{shoppingTab=t;drawShop()};
-function plannedIngredients(weeks){
+function plannedIngredients(weeks,startOffset=0){
  let out={};
- for(let w=0;w<weeks;w++)weekDates(w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
+ for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
    let nk=shoppingNameKey(i.name),uk=normalize(i.unit),sk=normalize(i.section),k=nk+"|"+uk+"|"+sk;
    if(!out[k])out[k]={...i,name:shoppingDisplayName(i.name),qty:0,key:k};
    out[k].qty+=i.qty*fac;
@@ -619,12 +638,13 @@ function drawShop(){
    <div class="card"><h3>Sauvegarde manuelle</h3><p class="muted">En attendant la synchronisation, tu peux sauvegarder tes données dans un fichier puis les restaurer sur un autre appareil.</p><div class="actions2"><button class="outline" onclick="exportData()">Exporter</button><label class="primary" style="margin:0;text-align:center;cursor:pointer">Importer<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label></div></div>`;
    return;
  }
- let weeks=data.shoppingWeeks||1, items=plannedIngredients(weeks);
+ let startWeek=Math.min(3,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,4-startWeek), items=plannedIngredients(weeks,startWeek);
  data.manual.forEach(x=>{let k="manual|"+x.id;items[k]={...x,key:k,manual:true}});
  let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
  let groups={};visible.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
  c.innerHTML=`<div class="card">
-  <div class="grid2"><label>Courses pour<select id="shopWeeks"><option value="1">1 semaine</option><option value="2">2 semaines</option><option value="3">3 semaines</option><option value="4">4 semaines</option></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
+  <label>Semaine de départ<select id="shopStartWeek"></select></label>
+  <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
  ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>{let ck=!!data.checked[i.key];return `<label class="shoprow ${ck?"done":""}"><input type="checkbox" ${ck?"checked":""} onchange="checkShop('${encodeURIComponent(i.key)}',this.checked)"><span style="flex:1">${fmtNum(i.qty)} ${escapeHtml(i.unit||"")} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</label>`}).join("")}</div>`).join(""):'<div class="card empty">Aucun article. Planifie des repas ou ajoute un article manuellement.</div>'}
@@ -636,7 +656,17 @@ function drawShop(){
  <button class="chipfilter" onclick="quickManual('Parapharmacie')">✚ Parapharmacie</button>
 </div></div>
 <button class="outline" style="width:100%" onclick="manualDialog.showModal()">＋ Ajouter un article</button>`;
- $("#shopWeeks").value=weeks;$("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
+ const weekLabel=o=>{
+   const ds=weekDates(o),a=ds[0],b=ds[6],fmt=d=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
+   return `${o===0?"Cette semaine":o===1?"Semaine prochaine":`Dans ${o} semaines`} · ${fmt(a)} au ${fmt(b)}`;
+ };
+ $("#shopStartWeek").innerHTML=[0,1,2,3].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
+ $("#shopStartWeek").value=startWeek;
+ const maxWeeks=4-startWeek;
+ $("#shopWeeks").innerHTML=Array.from({length:maxWeeks},(_,i)=>i+1).map(n=>`<option value="${n}">${n} semaine${n>1?"s":""}</option>`).join("");
+ $("#shopWeeks").value=weeks;
+ $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,4-data.shoppingStartWeek);save(true);drawShop()};
+ $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
 window.generateShopping=()=>{data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
 window.checkShop=(k,v)=>{data.checked[decodeURIComponent(k)]=v;save(true);drawShop()};
