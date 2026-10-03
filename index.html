@@ -113,6 +113,39 @@ label input,label textarea,label select{margin-top:6px;font-weight:400}
 .category-tile .catemoji{font-size:26px}.category-tile.active{outline:2px solid var(--accent)}
 .alpha-row{display:flex;gap:8px;align-items:end;margin:8px 0 14px}.alpha-row label{flex:1}
 .plan-category-panel{margin-top:10px}
+
+/* V4.5.1 — DA Nout' Kaz aquarelle */
+:root{
+ --bg:#fff9f5;--card:#fffdf9;--text:#31432f;--muted:#788273;
+ --accent:#e88da8;--accent2:#f5c7a8;--line:#eadfd8;--soft:#f9ebe9;
+}
+body{
+ background:
+ radial-gradient(circle at 8% 2%,rgba(244,190,211,.34),transparent 25%),
+ radial-gradient(circle at 94% 8%,rgba(185,211,236,.30),transparent 24%),
+ linear-gradient(180deg,#fff9f5 0%,#fffdf9 48%,#f8f4eb 100%);
+ color:var(--text);
+}
+header,.topbar{background:rgba(255,253,249,.90)!important;backdrop-filter:blur(12px)}
+.card,dialog .dialogbody{background:rgba(255,253,249,.96)}
+.primary{background:linear-gradient(135deg,#df819f,#eea67d)!important;color:white!important}
+.outline{border-color:#dca2ad!important;color:#6b4a4c!important;background:#fffaf8!important}
+.soft{background:#f8ece8!important;color:#496047!important}
+.chipfilter.active,.category-tile.active{background:#f8e6e8!important;border-color:#dc91a8!important}
+.category-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.category-tile{
+ aspect-ratio:1/1;border-radius:16px;padding:0;overflow:hidden;position:relative;
+ background:#fff;border:1px solid rgba(105,117,91,.14);box-shadow:0 5px 14px rgba(93,76,69,.09);
+ display:block;
+}
+.category-tile .catemoji{display:none}
+.category-tile .catart{width:100%;height:100%;object-fit:cover;display:block}
+.category-tile .catlabel{
+ position:absolute;left:5px;right:5px;bottom:5px;padding:5px 3px;border-radius:10px;
+ background:rgba(255,250,245,.88);backdrop-filter:blur(3px);text-align:center;
+ font-size:12px;line-height:1.05;font-weight:800;color:#344a31;
+}
+@media(max-width:390px){.category-grid{gap:6px}.category-tile .catlabel{font-size:11px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -410,8 +443,17 @@ function recipeCategoryIcon(c){
  const x={"Entrée":"🥗","Plat":"🍽️","Protéines":"🍗","Légumes":"🥦","Féculents":"🍚","Dessert":"🍰","Petit-déjeuner":"☕","Goûter":"🍪","Boisson":"🥤","Autre":"📖","❤️ Favoris":"❤️","Toutes":"📚"};
  return x[c]||"🍴";
 }
+function recipeCategoryArt(c){
+ const a={"Petit-déjeuner":"cat-petit-dejeuner.webp","Entrée":"cat-entree.webp","Plat":"cat-plat.webp","Dessert":"cat-dessert.webp","Féculents":"cat-feculents.webp","Protéines":"cat-proteines.webp"};
+ return a[c]||"";
+}
+function categoryTileInner(c){
+ const art=recipeCategoryArt(c);
+ return art?`<img class="catart" src="${art}" alt=""><span class="catlabel">${escapeHtml(c)}</span>`:`<span class="catemoji">${recipeCategoryIcon(c)}</span><span class="catlabel">${escapeHtml(c)}</span>`;
+}
+
 function recipeCategories(){
- const preferred=["Entrée","Plat","Protéines","Légumes","Féculents","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
+ const preferred=["Petit-déjeuner","Entrée","Plat","Dessert","Féculents","Protéines","Légumes","Goûter","Boisson","Autre"];
  const found=[...new Set(data.recipes.map(r=>r.category||"Autre"))];
  return ["Toutes","❤️ Favoris",...preferred.filter(c=>found.includes(c)),...found.filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
 }
@@ -420,7 +462,7 @@ function recipes(){
  const cats=recipeCategories();
  view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div>
  <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
- <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile ${recipeFilter===c?"active":""}" data-cat="${escapeHtml(c)}"><span class="catemoji">${recipeCategoryIcon(c)}</span><span>${escapeHtml(c)}</span></button>`).join("")}</div>
+ <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile ${recipeFilter===c?"active":""}" data-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("")}</div>
  <div class="alpha-row"><label>Lettre<select id="recipeLetterSelect"></select></label></div>
  <div id="recipeList"></div>`;
  const letters=[...new Set(data.recipes.filter(r=>recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter).map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
@@ -440,7 +482,7 @@ function drawRecipes(q){
   return ok&&(!nq||text.includes(nq))&&(!letter||first===letter);
  }).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
  if(!arr.length){$("#recipeList").innerHTML=`<div class="empty">Aucune recette trouvée.</div>`;return}
- const preferred=["Entrée","Plat","Protéines","Légumes","Féculents","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
+ const preferred=["Petit-déjeuner","Entrée","Plat","Dessert","Féculents","Protéines","Légumes","Goûter","Boisson","Autre"];
  let groups={};arr.forEach(r=>(groups[r.category||"Autre"]??=[]).push(r));
  let ordered=[...preferred.filter(c=>groups[c]),...Object.keys(groups).filter(c=>!preferred.includes(c)).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}))];
  $("#recipeList").innerHTML=ordered.map(cat=>`<section class="recipe-category"><div class="section-title"><h2 style="margin:0">${escapeHtml(cat)}</h2><span class="badge">${groups[cat].length}</span></div>
@@ -587,7 +629,7 @@ function planning(){
     let m=p[slot],rs=mealRecipes(m);return `<div class="meal" onclick="openMeal('${k}','${slot}')">${rs.length?`<div class="mealstack">${rs.map(x=>`<button type="button" class="mealchip planning-recipe-link" onclick="event.stopPropagation();showDetail('${x.r.id}')" style="border:0;cursor:pointer;text-align:left">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}<div class="muted">${m.servings||rs[0].r.servings} pers. · toucher autour pour modifier le repas</div></div>`:"＋ Ajouter"}</div>`}).join("")}`;
  });
  view.innerHTML=`<div class="card"><h3 style="margin-top:0">Ajouter une recette</h3><div class="muted">Comme dans Recettes : choisis d’abord une catégorie.</div>
- <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile plan-cat" data-cat="${escapeHtml(c)}"><span class="catemoji">${recipeCategoryIcon(c)}</span><span>${escapeHtml(c)}</span></button>`).join("")}</div>
+ <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile plan-cat" data-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("")}</div>
  <div id="planCategoryPanel" class="plan-category-panel"></div></div>
  <div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
  <div class="card"><div class="week">${cells}</div></div>
