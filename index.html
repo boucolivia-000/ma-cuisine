@@ -237,6 +237,14 @@ header h1,.topbar h1{color:#355238!important}
 .home-upcoming .section-title,.home-upcoming h3{background:transparent!important}
 .home-suggest{background:#fbfcf6!important;border-color:#e2e6d7!important}
 .home-section-mark{display:none!important}
+
+.variant-tabs{display:flex;gap:7px;overflow-x:auto;padding:4px 0 12px}
+.variant-tab{white-space:nowrap;border:1px solid var(--line);background:#fffaf5;border-radius:999px;padding:8px 12px}
+.variant-tab.active{background:#e7efe0;border-color:#aabd98;color:#355238;font-weight:700}
+.variant-editor{border:1px solid var(--line);background:#fffdfa;border-radius:16px;padding:12px;margin:10px 0}
+.variant-editor .variant-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.variant-editor textarea{margin-top:6px}
+.meal-variant{margin-top:7px;width:100%;padding:7px;border:1px solid var(--line);border-radius:10px;background:white}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -286,6 +294,9 @@ header h1,.topbar h1{color:#355238!important}
   <label>Ingrédients<textarea id="ring" rows="7" required placeholder="2 | pièce | oignon | Fruits & légumes&#10;200 | g | champignons | Fruits & légumes"></textarea></label>
   <div class="muted">Une ligne : quantité | unité | ingrédient | rayon</div>
   <label>Info<textarea id="rinfo" rows="3" placeholder="Notes, conseils, accompagnement, variantes…"></textarea></label>
+   <div class="section-title"><h3>Déclinaisons</h3><button type="button" class="soft small" onclick="addVariantEditor()">＋ Ajouter</button></div>
+   <div class="muted" style="margin-bottom:8px">La recette ci-dessus est la version Nature. Ajoute ici les autres versions (citron, fruits rouges…). Laisse un champ vide pour conserver celui de la recette Nature.</div>
+   <div id="variantEditors"></div>
   <label>Étapes<textarea id="rsteps" rows="6" placeholder="Une étape par ligne"></textarea></label>
   <div class="dialogactions"><button type="button" class="soft" onclick="recipeDialog.close()">Annuler</button><button class="primary">Enregistrer</button></div>
  </form>
@@ -321,6 +332,7 @@ header h1,.topbar h1{color:#355238!important}
  <input id="quickRecipeId" type="hidden">
  <label>Jour<input id="quickPlanDate" type="date"></label>
  <label>Moment<select id="quickPlanSlot"><option value="midi">Midi</option><option value="soir">Soir</option></select></label>
+ <div id="quickVariantWrap"></div>
  <label>Nombre de personnes<input id="quickPlanServ" type="number" min="1" value="2"></label>
  <div class="dialogactions"><button type="button" class="soft" onclick="quickPlanDialog.close()">Annuler</button><button type="button" class="primary" onclick="saveQuickPlan()">Ajouter au planning</button></div>
 </div></dialog>
@@ -451,13 +463,19 @@ function monday(offset=0){let d=new Date(),n=(d.getDay()+6)%7;d.setDate(d.getDat
 function weekDates(offset=0){let m=monday(offset);return Array.from({length:7},(_,i)=>{let d=new Date(m);d.setDate(m.getDate()+i);return d})}
 function weekLabel(offset=0){let ds=weekDates(offset);return `${ds[0].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} – ${ds[6].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}`}
 function getRecipe(id){return data.recipes.find(r=>r.id===id)}
+function getVariant(r,variantId){return (r?.variants||[]).find(v=>v.id===variantId)}
+function effectiveRecipe(r,variantId=""){
+ if(!r)return null; let v=getVariant(r,variantId); if(!v)return r;
+ return {...r,name:`${r.name} — ${v.name}`,ingredients:(v.ingredients&&v.ingredients.length)?v.ingredients:r.ingredients,
+   info:(v.info||"").trim()||r.info,steps:(v.steps&&v.steps.length)?v.steps:r.steps,_baseName:r.name,_variantId:v.id,_variantName:v.name};
+}
 function mealItems(m){
  if(!m)return [];
  if(Array.isArray(m))return m.map(x=>typeof x==="string"?{recipeId:x}:x);
  if(Array.isArray(m.recipes))return m.recipes.map(x=>typeof x==="string"?{recipeId:x}:x);
  return [{recipeId:m.recipeId||m,servings:m.servings}];
 }
-function mealRecipes(m){return mealItems(m).map(x=>({item:x,r:getRecipe(x.recipeId)})).filter(x=>x.r)}
+function mealRecipes(m){return mealItems(m).map(x=>({item:x,r:effectiveRecipe(getRecipe(x.recipeId),x.variantId||"")})).filter(x=>x.r)}
 function fmtNum(n){return Number.isInteger(+n)?String(+n):(+n).toFixed(2).replace(".",",")}
 function normalize(s){return (s||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ")}
 
@@ -587,40 +605,58 @@ function drawRecipes(q){
   <button class="iconbtn fav" onclick="event.stopPropagation();toggleFav('${r.id}')">${r.favorite?"♥":"♡"}</button></div>`).join("")}</section>`).join("");
 }
 window.toggleFav=id=>{let r=getRecipe(id);r.favorite=!r.favorite;save()};
-window.showDetail=function(id,mult=1){
- let r=getRecipe(id);if(!r)return;
- let servings=Math.max(1,Math.round(r.servings*mult));
+window.showDetail=function(id,mult=1,variantId=""){
+ let base=getRecipe(id);if(!base)return; let r=effectiveRecipe(base,variantId);
+ let servings=Math.max(1,Math.round(base.servings*mult));
+ let tabs=(base.variants||[]).length?`<div class="section-title"><h3>Déclinaisons</h3></div><div class="variant-tabs">
+ <button class="variant-tab ${!variantId?"active":""}" onclick="showDetail('${id}',${mult},'')">Nature</button>
+ ${(base.variants||[]).map(v=>`<button class="variant-tab ${variantId===v.id?"active":""}" onclick="showDetail('${id}',${mult},'${v.id}')">${escapeHtml(v.name)}</button>`).join("")}</div>`:"";
  $("#detailBody").innerHTML=`
- <div class="dialoghead"><button class="soft" onclick="detailDialog.close()">←</button><div><button class="iconbtn" onclick="editRecipe('${r.id}')">✎</button><button class="iconbtn fav" onclick="toggleFavDetail('${r.id}')">${r.favorite?"♥":"♡"}</button></div></div><button type="button" class="primary" style="width:100%;margin:8px 0 12px" onclick="planRecipeFromDetail('${r.id}')">📅 Planifier cette recette</button>
- <div class="hero">${imgHTML(r)}</div>
- <h2>${escapeHtml(r.name)}</h2>
- <div class="stats"><div class="stat"><b>${r.prep} min</b>Préparation</div><div class="stat"><b>${r.cook} min</b>Cuisson</div><div class="stat"><b>${escapeHtml(r.difficulty)}</b>Difficulté</div><div class="stat"><b>${servings}</b>Personnes</div></div>
- <div class="section-title"><h3>Ingrédients</h3><div><button class="soft small" onclick="changeDetailServ('${r.id}',${servings-1})">−</button> <span class="badge">${servings} pers.</span> <button class="soft small" onclick="changeDetailServ('${r.id}',${servings+1})">＋</button></div></div>
- ${r.ingredients.map(i=>`<div class="ingredient"><span>•</span><span>${fmtNum(i.qty*servings/r.servings)} ${escapeHtml(i.unit)} ${escapeHtml(i.name)}</span></div>`).join("")}
+ <div class="dialoghead"><button class="soft" onclick="detailDialog.close()">←</button><div><button class="iconbtn" onclick="editRecipe('${base.id}')">✎</button><button class="iconbtn fav" onclick="toggleFavDetail('${base.id}')">${base.favorite?"♥":"♡"}</button></div></div>
+ <button type="button" class="primary" style="width:100%;margin:8px 0 12px" onclick="planRecipeFromDetail('${base.id}','${variantId}')">📅 Planifier cette recette</button>
+ <div class="hero">${imgHTML(base)}</div>
+ <h2>${escapeHtml(r.name)}</h2>${tabs}
+ <div class="stats"><div class="stat"><b>${base.prep} min</b>Préparation</div><div class="stat"><b>${base.cook} min</b>Cuisson</div><div class="stat"><b>${escapeHtml(base.difficulty)}</b>Difficulté</div><div class="stat"><b>${servings}</b>Personnes</div></div>
+ <div class="section-title"><h3>Ingrédients</h3><div><button class="soft small" onclick="changeDetailServ('${base.id}',${servings-1},'${variantId}')">−</button> <span class="badge">${servings} pers.</span> <button class="soft small" onclick="changeDetailServ('${base.id}',${servings+1},'${variantId}')">＋</button></div></div>
+ ${r.ingredients.map(i=>`<div class="ingredient"><span>•</span><span>${fmtNum(i.qty*servings/base.servings)} ${escapeHtml(i.unit)} ${escapeHtml(i.name)}</span></div>`).join("")}
  ${r.info?`<div class="section-title"><h3>Info</h3></div><div class="notice">${escapeHtml(r.info).replace(/\n/g,"<br>")}</div>`:""}
  <div class="section-title"><h3>Étapes</h3></div>
- ${r.steps.map((s,i)=>`<div class="step"><span class="stepnum">${i+1}</span><span>${escapeHtml(s)}</span></div>`).join("")}
- <div class="actions2" style="margin-top:16px"><button class="outline" onclick="editRecipe('${r.id}')">Modifier</button><button class="danger" onclick="deleteRecipe('${r.id}')">Supprimer</button></div>`;
+ ${r.steps.map((st,i)=>`<div class="step"><span class="stepnum">${i+1}</span><span>${escapeHtml(st)}</span></div>`).join("")}
+ <div class="actions2" style="margin-top:16px"><button class="outline" onclick="editRecipe('${base.id}')">Modifier</button><button class="danger" onclick="deleteRecipe('${base.id}')">Supprimer</button></div>`;
  detailDialog.showModal();
 }
-window.changeDetailServ=(id,s)=>{let r=getRecipe(id);showDetail(id,s/r.servings)};
+window.changeDetailServ=(id,sv,variantId="")=>{let r=getRecipe(id);showDetail(id,sv/r.servings,variantId)};
 window.toggleFavDetail=id=>{let r=getRecipe(id);r.favorite=!r.favorite;save(true);showDetail(id)};
 window.deleteRecipe=id=>{if(confirm("Supprimer cette recette ?")){data.recipes=data.recipes.filter(r=>r.id!==id);detailDialog.close();save()}};
 window.editRecipe=id=>{detailDialog.close();openRecipe(getRecipe(id))};
 
+let variantDraft=[];
+function parseIngredientLines(txt){return (txt||"").split("\n").map(x=>x.trim()).filter(Boolean).map(l=>{let [qty,unit,name,section]=l.split("|").map(x=>x.trim());return{qty:parseFloat((qty||"0").replace(",","."))||0,unit:unit||"",name:name||"",section:section||"Autre"}})}
+function variantEditorHTML(v,i){return `<div class="variant-editor" data-vi="${i}">
+ <div class="variant-head"><b>Déclinaison ${i+1}</b><button type="button" class="danger small" onclick="removeVariantEditor(${i})">Supprimer</button></div>
+ <label>Nom<input class="vname" value="${escapeHtml(v.name||"")}" placeholder="Ex. Citron" required></label>
+ <label>Ingrédients<textarea class="ving" rows="5" placeholder="Laisser vide = mêmes ingrédients que Nature">${escapeHtml((v.ingredients||[]).map(x=>`${x.qty} | ${x.unit} | ${x.name} | ${x.section}`).join("\n"))}</textarea></label>
+ <label>Info<textarea class="vinfo" rows="2" placeholder="Laisser vide = même info">${escapeHtml(v.info||"")}</textarea></label>
+ <label>Étapes<textarea class="vsteps" rows="4" placeholder="Laisser vide = mêmes étapes">${escapeHtml((v.steps||[]).join("\n"))}</textarea></label></div>`}
+function collectVariantEditors(){
+ return [...document.querySelectorAll(".variant-editor")].map((el,i)=>({id:variantDraft[i]?.id||uid("v"),name:el.querySelector(".vname").value.trim(),
+ ingredients:parseIngredientLines(el.querySelector(".ving").value),info:el.querySelector(".vinfo").value.trim(),
+ steps:el.querySelector(".vsteps").value.split("\n").map(x=>x.trim()).filter(Boolean)})).filter(v=>v.name)
+}
+function drawVariantEditors(){let box=$("#variantEditors");if(box)box.innerHTML=variantDraft.map(variantEditorHTML).join("")}
+window.addVariantEditor=()=>{variantDraft=collectVariantEditors();variantDraft.push({id:uid("v"),name:"",ingredients:[],info:"",steps:[]});drawVariantEditors()}
+window.removeVariantEditor=i=>{variantDraft=collectVariantEditors();variantDraft.splice(i,1);drawVariantEditors()}
 window.openRecipe=function(r=null){
- recipePhoto=r?.photo||""; $("#recipeFormTitle").textContent=r?"Modifier la recette":"Ajouter une recette";
+ recipePhoto=r?.photo||""; variantDraft=JSON.parse(JSON.stringify(r?.variants||[])); $("#recipeFormTitle").textContent=r?"Modifier la recette":"Ajouter une recette";
  $("#rid").value=r?.id||"";$("#rname").value=r?.name||"";$("#rserv").value=r?.servings||2;$("#rprep").value=r?.prep??20;$("#rcook").value=r?.cook??20;$("#rdiff").value=r?.difficulty||"Facile";$("#rcat").value=r?.category||"Plat";
  $("#ring").value=r?r.ingredients.map(i=>`${i.qty} | ${i.unit} | ${i.name} | ${i.section}`).join("\n"):"";
- $("#rinfo").value=r?.info||"";
- $("#rsteps").value=r?r.steps.join("\n"):"";renderPhotoPreview();recipeDialog.showModal();
+ $("#rinfo").value=r?.info||""; $("#rsteps").value=r?r.steps.join("\n"):"";renderPhotoPreview();drawVariantEditors();recipeDialog.showModal();
 }
 function renderPhotoPreview(){photoPreview.innerHTML=recipePhoto?`<img src="${recipePhoto}" alt="">`:"📷 Photo facultative"}
 $("#rphoto").onchange=e=>{let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{recipePhoto=rd.result;renderPhotoPreview()};rd.readAsDataURL(f)};
 $("#recipeForm").onsubmit=e=>{
- e.preventDefault();let id=$("#rid").value||uid("r");
- let ingredients=$("#ring").value.split("\n").map(x=>x.trim()).filter(Boolean).map(l=>{let [qty,unit,name,section]=l.split("|").map(x=>x.trim());return{qty:parseFloat((qty||"0").replace(",","."))||0,unit:unit||"",name:name||"",section:section||"Autre"}});
- let existing=getRecipe(id);let r={id,name:$("#rname").value.trim(),photo:recipePhoto,servings:+$("#rserv").value,prep:+$("#rprep").value||0,cook:+$("#rcook").value||0,difficulty:$("#rdiff").value,category:$("#rcat").value,favorite:existing?.favorite||false,ingredients,info:$("#rinfo").value.trim(),steps:$("#rsteps").value.split("\n").map(x=>x.trim()).filter(Boolean)};
+ e.preventDefault();let id=$("#rid").value||uid("r"); let ingredients=parseIngredientLines($("#ring").value); let variants=collectVariantEditors();
+ let existing=getRecipe(id);let r={id,name:$("#rname").value.trim(),photo:recipePhoto,servings:+$("#rserv").value,prep:+$("#rprep").value||0,cook:+$("#rcook").value||0,difficulty:$("#rdiff").value,category:$("#rcat").value,favorite:existing?.favorite||false,ingredients,info:$("#rinfo").value.trim(),steps:$("#rsteps").value.split("\n").map(x=>x.trim()).filter(Boolean),variants};
  let ix=data.recipes.findIndex(x=>x.id===id);ix>=0?data.recipes[ix]=r:data.recipes.push(r);recipeDialog.close();save();
 };
 
@@ -701,19 +737,19 @@ $("#previewImportBtn").onclick=()=>{
  };
 };
 
-window.planRecipeFromDetail=id=>{
+window.planRecipeFromDetail=(id,variantId="")=>{
  let r=getRecipe(id);if(!r)return;
  $("#quickRecipeId").value=id;$("#quickPlanDate").value=dateKey(new Date());$("#quickPlanServ").value=r.servings||2;
+ let opts=[`<option value="">Nature</option>`,...(r.variants||[]).map(v=>`<option value="${v.id}" ${v.id===variantId?"selected":""}>${escapeHtml(v.name)}</option>`)];
+ $("#quickVariantWrap").innerHTML=(r.variants||[]).length?`<label>Déclinaison<select id="quickVariant">${opts.join("")}</select></label>`:"";
  detailDialog.close();quickPlanDialog.showModal();
 };
 window.saveQuickPlan=()=>{
  let id=$("#quickRecipeId").value,k=$("#quickPlanDate").value,slot=$("#quickPlanSlot").value,serv=+$("#quickPlanServ").value||2;
- if(!k)return alert("Choisis un jour.");
- data.planning[k]??={};
- let existing=data.planning[k][slot],ids=mealItems(existing).map(x=>x.recipeId);
- if(!ids.includes(id))ids.push(id);
- data.planning[k][slot]={recipes:ids.map(recipeId=>({recipeId})),servings:serv};
- quickPlanDialog.close();save();
+ let variantId=$("#quickVariant")?.value||""; if(!k)return alert("Choisis un jour.");
+ data.planning[k]??={}; let existing=data.planning[k][slot],items=mealItems(existing);
+ if(!items.some(x=>x.recipeId===id&&((x.variantId||"")===variantId)))items.push({recipeId:id,variantId});
+ data.planning[k][slot]={recipes:items,servings:serv}; quickPlanDialog.close();save();
 };
 function planning(){
  head("Planning","Choisis une catégorie puis une recette à planifier");
@@ -741,53 +777,26 @@ window.planRecipeFromPlanning=id=>{
 window.changeWeek=n=>{weekOffset+=n;planning()};
 window.openMeal=(k,slot)=>{
  $("#mdate").value=k;$("#mslot").value=slot;
- let existing=data.planning[k]?.[slot]; window.mealSelected=new Set(mealItems(existing).map(x=>x.recipeId)); let selected=window.mealSelected;
- let first=mealRecipes(existing)[0]?.r;
- $("#mserv").value=existing?.servings||first?.servings||2;
- const mealCategories=recipeCategories();
- let activeMealCategory="Toutes",activeLetter="";
- const filteredBase=()=>data.recipes.filter(r=>{
-   if(activeMealCategory==="Toutes")return true;
-   if(activeMealCategory==="❤️ Favoris")return !!r.favorite;
-   return (r.category||"Autre")===activeMealCategory;
- }).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
- const drawLetters=()=>{
-   let letters=[...new Set(filteredBase().map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
-   $("#mealLetterFilters").innerHTML=`<button type="button" class="${activeLetter===""?"active":""}" data-letter="">Toutes</button>${letters.map(l=>`<button type="button" class="${activeLetter===l?"active":""}" data-letter="${l}">${l}</button>`).join("")}`;
-   $("#mealLetterFilters").querySelectorAll("[data-letter]").forEach(btn=>btn.onclick=()=>{
-     document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>selected.add(cb.value));
-     activeLetter=btn.dataset.letter;drawLetters();drawMealRecipes();
-   });
- };
- const drawMealRecipes=()=>{
-   let recipes=filteredBase().filter(r=>!activeLetter||normalize(r.name).charAt(0).toUpperCase()===activeLetter);
-   $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${recipes.map(r=>`<label class="mealchoice">
-     <input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}>
-     <span class="mini">${imgHTML(r)}</span>
-     <span><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span></span>
-   </label>`).join("")}</div>`;
- };
+ let existing=data.planning[k]?.[slot]; window.mealSelected=new Map(mealItems(existing).map(x=>[x.recipeId,x.variantId||""])); let selected=window.mealSelected;
+ let first=mealRecipes(existing)[0]?.r; $("#mserv").value=existing?.servings||first?.servings||2;
+ const capture=()=>document.querySelectorAll("#mealRecipeChoices input[type=checkbox]").forEach(cb=>{if(cb.checked)selected.set(cb.value,document.querySelector(`[data-variant-for="${cb.value}"]`)?.value||"");else selected.delete(cb.value)});
+ const mealCategories=recipeCategories(); let activeMealCategory="Toutes",activeLetter="";
+ const filteredBase=()=>data.recipes.filter(r=>activeMealCategory==="Toutes"?true:activeMealCategory==="❤️ Favoris"?!!r.favorite:(r.category||"Autre")===activeMealCategory).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+ const drawLetters=()=>{let letters=[...new Set(filteredBase().map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+ $("#mealLetterFilters").innerHTML=`<button type="button" class="${activeLetter===""?"active":""}" data-letter="">Toutes</button>${letters.map(l=>`<button type="button" class="${activeLetter===l?"active":""}" data-letter="${l}">${l}</button>`).join("")}`;
+ $("#mealLetterFilters").querySelectorAll("[data-letter]").forEach(btn=>btn.onclick=()=>{capture();activeLetter=btn.dataset.letter;drawLetters();drawMealRecipes()})};
+ const drawMealRecipes=()=>{let recipes=filteredBase().filter(r=>!activeLetter||normalize(r.name).charAt(0).toUpperCase()===activeLetter);
+ $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${recipes.map(r=>{let vars=r.variants||[],cur=selected.get(r.id)||"";return `<label class="mealchoice"><input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}><span class="mini">${imgHTML(r)}</span><span style="flex:1"><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span>${vars.length?`<select class="meal-variant" data-variant-for="${r.id}" onclick="event.stopPropagation()"><option value="">Nature</option>${vars.map(v=>`<option value="${v.id}" ${cur===v.id?"selected":""}>${escapeHtml(v.name)}</option>`).join("")}</select>`:""}</span></label>`}).join("")}</div>`};
  $("#mealCategoryFilters").innerHTML=mealCategories.map(c=>`<button type="button" class="category-tile ${c==="Toutes"?"active":""}" data-meal-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("");
- $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(btn=>btn.onclick=()=>{
-   document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>selected.add(cb.value));
-   activeMealCategory=btn.dataset.mealCat;activeLetter="";
-   $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(b=>b.classList.toggle("active",b===btn));
-   drawLetters();drawMealRecipes();
- });
- drawLetters();drawMealRecipes();
- $("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
+ $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(btn=>btn.onclick=()=>{capture();activeMealCategory=btn.dataset.mealCat;activeLetter="";$("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(b=>b.classList.toggle("active",b===btn));drawLetters();drawMealRecipes()});
+ drawLetters();drawMealRecipes();$("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
 };
 window.saveMealSelection=()=>{
  let k=$("#mdate").value,slot=$("#mslot").value;
- document.querySelectorAll("#mealRecipeChoices input:checked").forEach(cb=>window.mealSelected.add(cb.value));
- let ids=[...window.mealSelected];
- if(!ids.length){alert("Sélectionne au moins une recette.");return}
- data.planning[k]??={};
- data.planning[k][slot]={recipes:ids.map(recipeId=>({recipeId})),servings:+$("#mserv").value};
- ids.forEach(rid=>data.history.unshift({date:k,slot,recipeId:rid}));
- data.history=data.history.slice(0,100);
- mealDialog.close();
- save();
+ document.querySelectorAll("#mealRecipeChoices input[type=checkbox]").forEach(cb=>{if(cb.checked)window.mealSelected.set(cb.value,document.querySelector(`[data-variant-for="${cb.value}"]`)?.value||"");else window.mealSelected.delete(cb.value)});
+ let items=[...window.mealSelected].map(([recipeId,variantId])=>({recipeId,variantId})); if(!items.length){alert("Sélectionne au moins une recette.");return}
+ data.planning[k]??={};data.planning[k][slot]={recipes:items,servings:+$("#mserv").value};
+ items.forEach(x=>data.history.unshift({date:k,slot,recipeId:x.recipeId,variantId:x.variantId}));data.history=data.history.slice(0,100);mealDialog.close();save();
 };
 $("#saveMealBtn").onclick=window.saveMealSelection;
 $("#removeMeal").onclick=()=>{let k=$("#mdate").value,slot=$("#mslot").value;if(data.planning[k])delete data.planning[k][slot];mealDialog.close();save()};
@@ -797,7 +806,7 @@ window.copyWeek=()=>{
  alert("La semaine a été copiée sur la suivante.");save();
 };
 function historyHTML(){
- let arr=data.history.slice(0,8).map(h=>{let r=getRecipe(h.recipeId);return r?`<div class="ingredient"><span class="badge">${new Date(h.date+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span><span>${escapeHtml(r.name)} · ${h.slot}</span></div>`:""}).join("");
+ let arr=data.history.slice(0,8).map(h=>{let r=effectiveRecipe(getRecipe(h.recipeId),h.variantId||"");return r?`<div class="ingredient"><span class="badge">${new Date(h.date+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span><span>${escapeHtml(r.name)} · ${h.slot}</span></div>`:""}).join("");
  return arr||`<div class="muted">L’historique se remplira lorsque tu planifieras des repas.</div>`;
 }
 
