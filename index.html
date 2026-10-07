@@ -701,20 +701,22 @@ function parseBulkRecipes(raw){
 
 function normalizeImportedRecipe(x){
  if(!x||!String(x.name||"").trim())return null;
- let ingredients=Array.isArray(x.ingredients)?x.ingredients:[];
- ingredients=ingredients.map(i=>{
+ const normIngredients=arr=>(Array.isArray(arr)?arr:[]).map(i=>{
    if(typeof i==="string"){
      let [qty,unit,name,section]=i.split("|").map(v=>v.trim());
      return {qty:parseFloat((qty||"0").replace(",","."))||0,unit:unit||"",name:name||"",section:section||"Autre"};
    }
    return {qty:+i.qty||0,unit:i.unit||"",name:i.name||"",section:i.section||"Autre"};
  }).filter(i=>i.name);
- let steps=Array.isArray(x.steps)?x.steps:String(x.steps||"").split("\n");
- steps=steps.map(v=>String(v).trim()).filter(Boolean);
+ const normSteps=v=>(Array.isArray(v)?v:String(v||"").split("\n")).map(x=>String(x).trim()).filter(Boolean);
+ let variants=(Array.isArray(x.variants)?x.variants:[]).map(v=>({
+   id:v.id||uid("v"),name:String(v.name||"").trim(),ingredients:normIngredients(v.ingredients),
+   info:String(v.info||"").trim(),steps:normSteps(v.steps)
+ })).filter(v=>v.name);
  return {id:uid("r"),name:String(x.name).trim(),photo:"",servings:+x.servings||2,prep:+x.prep||0,cook:+x.cook||0,
-   difficulty:x.difficulty||"Facile",category:x.category||"Plat",favorite:false,ingredients,info:String(x.info||"").trim(),steps};
+   difficulty:x.difficulty||"Facile",category:x.category||"Plat",favorite:false,ingredients:normIngredients(x.ingredients),
+   info:String(x.info||"").trim(),steps:normSteps(x.steps),variants};
 }
-
 let bulkImportRecipes=[];
 $("#previewImportBtn").onclick=()=>{
  bulkImportRecipes=parseBulkRecipes($("#bulkImportText").value);
@@ -723,7 +725,7 @@ $("#previewImportBtn").onclick=()=>{
    return;
  }
  $("#importPreview").innerHTML=`<div class="section-title" style="margin-top:14px"><h3>${bulkImportRecipes.length} recette${bulkImportRecipes.length>1?"s":""} détectée${bulkImportRecipes.length>1?"s":""}</h3></div>
- <div class="mealchoices">${bulkImportRecipes.map((r,i)=>`<label class="mealchoice"><input type="checkbox" class="bulk-recipe-check" value="${i}" checked><span><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span></span></label>`).join("")}</div>
+ <div class="mealchoices">${bulkImportRecipes.map((r,i)=>`<label class="mealchoice"><input type="checkbox" class="bulk-recipe-check" value="${i}" checked><span><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.${(r.variants||[]).length?` · ${(r.variants||[]).length} déclinaison${r.variants.length>1?"s":""}`:""}</span></span></label>`).join("")}</div>
  <div class="dialogactions"><button type="button" class="primary" id="confirmBulkImport">Importer la sélection</button></div>`;
  $("#confirmBulkImport").onclick=()=>{
    const chosen=[...document.querySelectorAll(".bulk-recipe-check:checked")].map(cb=>bulkImportRecipes[+cb.value]);

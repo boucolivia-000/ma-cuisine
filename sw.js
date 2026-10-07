@@ -1,4 +1,4 @@
-const CACHE="nout-kaz-v4-7-0-declinaisons";
+const CACHE="nout-kaz-v4-7-1-import-declinaisons";
 const STATIC=["./index.html","./manifest.json","./nout-kaz-icon.png"];
 
 self.addEventListener("install",event=>{
