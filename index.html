@@ -69,6 +69,12 @@ textarea{resize:vertical}
 .group h3{display:flex;justify-content:space-between;align-items:center}
 .shoprow input[type=checkbox],.pantryrow input[type=checkbox]{width:20px;height:20px;margin-top:1px}
 .shoprow.done span{text-decoration:line-through;color:#999}
+.shoprow{cursor:pointer;border-radius:10px;padding:10px 6px;transition:opacity .45s ease,transform .45s ease,background .2s ease}
+.shoprow:active{background:#f7f1e8}
+.shoprow.done{opacity:.38;transform:translateX(6px)}
+.shoprow .shop-main{flex:1}
+.bought-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:4px 0}
+.bought-box .shoprow{opacity:.62}
 .badge{background:#f1e3d0;border-radius:99px;padding:4px 8px;font-size:11px}
 .small{font-size:12px}
 .empty{text-align:center;color:var(--muted);padding:26px}
@@ -363,6 +369,9 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
 if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[]; if(data.shoppingStartWeek==null)data.shoppingStartWeek=0;
+const SHOP_CHECKED_KEY="nout-kaz-shopping-checked-v1";
+let localShopChecked=JSON.parse(localStorage.getItem(SHOP_CHECKED_KEY)||"{}");
+function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.stringify(localShopChecked))}
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
@@ -821,19 +830,32 @@ function shoppingQtyDisplay(qty,family,label){
  }
  return `${fmtNum(qty)} ${label||""}`.trim();
 }
+function shoppingSectionPriority(section,nameKey){
+ const sec=(section||"Autre").trim();
+ const preferred={"oeuf":"Œufs"};
+ if(preferred[nameKey])return preferred[nameKey];
+ const rank={"Fruits & légumes":1,"Fruits et légumes":1,"Œufs":1,"Viandes":2,"Poissons":2,"Produits frais":3,"Crèmerie":3,"Épicerie":4,"Surgelés":5,"Autre":99};
+ return {section:sec,rank:rank[sec]??50};
+}
 function plannedIngredients(weeks,startOffset=0){
  let grouped={};
  for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
-   let nk=shoppingNameKey(i.name),sk=normalize(i.section),gk=nk+"|"+sk,ui=shoppingUnitInfo(i.unit);
-   if(!grouped[gk])grouped[gk]={name:shoppingDisplayName(i.name),section:i.section||"Autre",parts:{}};
+   let nk=shoppingNameKey(i.name),ui=shoppingUnitInfo(i.unit);
+   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{}};
+   grouped[nk].sections.push(i.section||"Autre");
    let pk=ui.family;
-   if(!grouped[gk].parts[pk])grouped[gk].parts[pk]={qty:0,family:ui.family,label:ui.label};
-   grouped[gk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
+   if(!grouped[nk].parts[pk])grouped[nk].parts[pk]={qty:0,family:ui.family,label:ui.label};
+   grouped[nk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
  })})})});
  let out={};
- Object.entries(grouped).forEach(([gk,g])=>{
-   let parts=Object.values(g.parts),key=gk;
-   out[key]={name:g.name,section:g.section,qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
+ Object.entries(grouped).forEach(([nk,g])=>{
+   let section;
+   if(nk==="oeuf") section="Œufs";
+   else section=[...new Set(g.sections)].sort((a,b)=>{
+     let pa=shoppingSectionPriority(a,nk),pb=shoppingSectionPriority(b,nk);return (pa.rank??50)-(pb.rank??50)
+   })[0]||"Autre";
+   let parts=Object.values(g.parts),key="ingredient|"+nk;
+   out[key]={name:g.name,section,qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
  });
  return out;
 }
@@ -852,16 +874,18 @@ function drawShop(){
    <div class="card"><h3>Sauvegarde manuelle</h3><p class="muted">En attendant la synchronisation, tu peux sauvegarder tes données dans un fichier puis les restaurer sur un autre appareil.</p><div class="actions2"><button class="outline" onclick="exportData()">Exporter</button><label class="primary" style="margin:0;text-align:center;cursor:pointer">Importer<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label></div></div>`;
    return;
  }
- let startWeek=Math.min(3,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,4-startWeek), items=plannedIngredients(weeks,startWeek);
+ let startWeek=Math.min(4,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,5-startWeek), items=plannedIngredients(weeks,startWeek);
  data.manual.forEach(x=>{let k="manual|"+x.id;items[k]={...x,key:k,manual:true}});
  let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
- let groups={};visible.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
+ let active=visible.filter(i=>!localShopChecked[i.key]), bought=visible.filter(i=>!!localShopChecked[i.key]);
+ let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
  c.innerHTML=`<div class="card">
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>{let ck=!!data.checked[i.key];return `<label class="shoprow ${ck?"done":""}"><input type="checkbox" ${ck?"checked":""} onchange="checkShop('${encodeURIComponent(i.key)}',this.checked)"><span style="flex:1">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</label>`}).join("")}</div>`).join(""):'<div class="card empty">Aucun article. Planifie des repas ou ajoute un article manuellement.</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
  <button class="chipfilter" onclick="quickManual('Entretien')">🧹 Entretien</button>
@@ -874,16 +898,17 @@ function drawShop(){
    const ds=weekDates(o),a=ds[0],b=ds[6],fmt=d=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
    return `${o===0?"Cette semaine":o===1?"Semaine prochaine":`Dans ${o} semaines`} · ${fmt(a)} au ${fmt(b)}`;
  };
- $("#shopStartWeek").innerHTML=[0,1,2,3].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
+ $("#shopStartWeek").innerHTML=[0,1,2,3,4].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
  $("#shopStartWeek").value=startWeek;
- const maxWeeks=4-startWeek;
+ const maxWeeks=5-startWeek;
  $("#shopWeeks").innerHTML=Array.from({length:maxWeeks},(_,i)=>i+1).map(n=>`<option value="${n}">${n} semaine${n>1?"s":""}</option>`).join("");
  $("#shopWeeks").value=weeks;
- $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,4-data.shoppingStartWeek);save(true);drawShop()};
+ $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
  $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
-window.generateShopping=()=>{data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
-window.checkShop=(k,v)=>{data.checked[decodeURIComponent(k)]=v;save(true);drawShop()};
+window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
+window.takeShopItem=(e,k,row)=>{if(e.target.closest("button"))return;let key=decodeURIComponent(k);localShopChecked[key]=true;saveLocalShopChecked();row.classList.add("done");setTimeout(drawShop,650)};
+window.restoreShopItem=k=>{delete localShopChecked[decodeURIComponent(k)];saveLocalShopChecked();drawShop()};
 window.quickManual=section=>{$("#manualSection").value=section;manualDialog.showModal()};
 $("#manualForm").onsubmit=e=>{e.preventDefault();data.manual.push({id:uid("m"),name:$("#manualName").value.trim(),qty:+$("#manualQty").value||1,unit:$("#manualUnit").value.trim(),section:$("#manualSection").value.trim()||"Autre"});manualDialog.close();e.target.reset();save(true);drawShop()};
 window.removeManual=id=>{data.manual=data.manual.filter(x=>x.id!==id);save(true);drawShop()};
