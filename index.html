@@ -245,12 +245,9 @@ header h1,.topbar h1{color:#355238!important}
 .variant-editor .variant-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .variant-editor textarea{margin-top:6px}
 .meal-variant{margin-top:7px;width:100%;padding:7px;border:1px solid var(--line);border-radius:10px;background:white}
-
-/* V4.8 — ergonomie mobile */
-#recipeDialog .dialogactions{position:sticky;bottom:0;z-index:5;background:#fffdf8;padding:12px 6px;box-shadow:0 -5px 14px #fffdf8}
-.shoprow{background:#fff;border:1px solid #eadfd4;border-radius:16px;margin:8px 0;padding:12px;box-shadow:0 2px 7px #51422b0b}
-.shop-origin{border:0;border-left:3px solid #87a77a;background:#eef3e9;color:#355238;border-radius:3px 9px 9px 3px;padding:8px 7px;cursor:pointer}
-.shop-origin-panel{font-size:12px;color:#50644b;padding:8px 12px;background:#f2f5ed;border-radius:12px;margin:0 0 7px}
+/* 4.8.1 */
+#recipeDialog{max-height:90dvh}#recipeDialog .dialogbody{max-height:88dvh;overflow-y:auto}#recipeDialog .dialogactions{position:sticky;bottom:0;background:#fffdf8;padding:12px 4px;z-index:10;box-shadow:0 -5px 14px #fffdf8}
+.shoprow{border:1px solid #e5dfd4;border-radius:16px;margin:7px 0;padding:12px;background:#fffdfb;box-shadow:0 2px 5px #0000000a}.shop-origin{border:0;border-left:3px solid #7c9b72;background:#eef3e8;border-radius:6px;margin-right:8px;cursor:pointer;padding:8px}.shop-origin-panel{background:#f2f5ed;border-radius:10px;padding:8px;margin:4px 0 10px;font-size:13px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -296,7 +293,7 @@ header h1,.topbar h1{color:#355238!important}
    <label>Cuisson (min)<input id="rcook" type="number" min="0" value="20"></label>
    <label>Difficulté<select id="rdiff"><option>Facile</option><option>Moyenne</option><option>Difficile</option></select></label>
   </div>
-  <label>Catégorie<select id="rcat"><option>Plat</option><option>Protéines</option><option>Légumes</option><option>Féculents</option><option>Entrée</option><option>Dessert</option><option>Petit-déjeuner</option><option>Goûter</option><option>Boisson</option><option>Autre</option></select></label>
+  <label>Catégorie principale<select id="rcat"><option>Plat</option><option>Protéines</option><option>Légumes</option><option>Féculents</option><option>Entrée</option><option>Dessert</option><option>Petit-déjeuner</option><option>Goûter</option><option>Boisson</option><option>Autre</option></select></label><div id="extraCategories" class="card" style="padding:10px"><b>Autres catégories</b><div id="extraCategoryChoices" class="chips"></div></div>
   <label>Ingrédients<textarea id="ring" rows="7" required placeholder="2 | pièce | oignon | Fruits & légumes&#10;200 | g | champignons | Fruits & légumes"></textarea></label>
   <div class="muted">Une ligne : quantité | unité | ingrédient | rayon</div>
   <label>Info<textarea id="rinfo" rows="3" placeholder="Notes, conseils, accompagnement, variantes…"></textarea></label>
@@ -347,9 +344,9 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialoghead"><h2>Ajouter un article</h2><button class="soft" onclick="manualDialog.close()">✕</button></div>
  <form id="manualForm">
   <label>Article<input id="manualName" required placeholder="Papier toilette"></label>
-  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<select id="manualUnit"><option value="unité">unité</option><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="L">L</option><option value="paquet">paquet</option><option value="boîte">boîte</option><option value="bouteille">bouteille</option><option value="rouleau">rouleau</option><option value="sachet">sachet</option></select></label></div>
+  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<input id="manualUnit" placeholder="paquet"></label></div>
   <label>Rayon
-    <select id="manualSection"><option>Autre</option><option>Fruits & légumes</option><option>Œufs</option><option>Boucherie / Poissonnerie</option><option>Produits frais</option><option>Frais</option><option>Épicerie</option><option>Surgelés</option><option>Boulangerie</option><option>Boissons</option><option>Hygiène</option><option>Entretien</option><option>Maison</option><option>Animaux</option><option>Parapharmacie</option></select>
+    <input id="manualSection" list="shoppingSections" value="Autre">
     <datalist id="shoppingSections">
       <option value="Fruits & légumes">
       <option value="Boucherie / Poissonnerie">
@@ -393,11 +390,7 @@ function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.strin
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
-document.querySelectorAll("dialog").forEach(d=>{
- d.addEventListener("click",e=>{
-   if(e.target===d)d.close();
- });
-});
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
 const detailDialog=$("#detailDialog");
 detailDialog.addEventListener("click",e=>{
  const r=detailDialog.getBoundingClientRect();
@@ -589,10 +582,10 @@ function recipes(){
  <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile ${recipeFilter===c?"active":""}" data-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("")}</div>
  <div class="alpha-row"><label>Lettre<select id="recipeLetterSelect"></select></label></div>
  <div id="recipeList"></div>`;
- const letters=[...new Set(data.recipes.filter(r=>recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter).map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
+ const letters=[...new Set(data.recipes.filter(r=>recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.categories||[r.category||"Autre"]).includes(recipeFilter)).map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
  $("#recipeLetterSelect").innerHTML=`<option value="">Toutes les lettres</option>${letters.map(l=>`<option value="${l}">${l}</option>`).join("")}`;
  document.querySelectorAll(".category-tile").forEach(b=>b.onclick=()=>{recipeFilter=b.dataset.cat;recipes()});
- $("#rsearch").oninput=()=>drawRecipes($("#rsearch").value);
+ $("#rsearch").oninput=()=>{let q=$("#rsearch").value;document.querySelector(".category-grid").style.display=q.trim()?"none":"";document.querySelector(".alpha-row").style.display=q.trim()?"none":"";drawRecipes(q)};
  $("#recipeLetterSelect").onchange=()=>drawRecipes($("#rsearch").value);
  drawRecipes("");
 }
@@ -600,7 +593,7 @@ window.setFilter=c=>{recipeFilter=c;recipes()};
 function drawRecipes(q){
  let nq=normalize(q),letter=$("#recipeLetterSelect")?.value||"";
  let arr=data.recipes.filter(r=>{
-  let ok=!!nq||recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter;
+  let ok=!!nq||recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.categories||[r.category||"Autre"]).includes(recipeFilter);
   let text=normalize(r.name+" "+(r.category||"Autre")+" "+r.ingredients.map(i=>i.name).join(" "));
   let first=normalize(r.name).charAt(0).toUpperCase();
   return ok&&(!nq||text.includes(nq))&&(!letter||first===letter);
@@ -660,6 +653,8 @@ window.removeVariantEditor=i=>{variantDraft=collectVariantEditors();variantDraft
 window.openRecipe=function(r=null){
  recipePhoto=r?.photo||""; variantDraft=JSON.parse(JSON.stringify(r?.variants||[])); $("#recipeFormTitle").textContent=r?"Modifier la recette":"Ajouter une recette";
  $("#rid").value=r?.id||"";$("#rname").value=r?.name||"";$("#rserv").value=r?.servings||2;$("#rprep").value=r?.prep??20;$("#rcook").value=r?.cook??20;$("#rdiff").value=r?.difficulty||"Facile";$("#rcat").value=r?.category||"Plat";
+ const categories=["Plat","Protéines","Légumes","Féculents","Entrée","Dessert","Petit-déjeuner","Goûter","Boisson","Autre"];
+ $("#extraCategoryChoices").innerHTML=categories.map(cat=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:4px"><input type="checkbox" class="extra-cat" value="${cat}" ${(r?.categories||[]).includes(cat)?"checked":""}>${cat}</label>`).join("");
  $("#ring").value=r?r.ingredients.map(i=>`${i.qty} | ${i.unit} | ${i.name} | ${i.section}`).join("\n"):"";
  $("#rinfo").value=r?.info||""; $("#rsteps").value=r?r.steps.join("\n"):"";renderPhotoPreview();drawVariantEditors();recipeDialog.showModal();
 }
@@ -667,7 +662,7 @@ function renderPhotoPreview(){photoPreview.innerHTML=recipePhoto?`<img src="${re
 $("#rphoto").onchange=e=>{let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{recipePhoto=rd.result;renderPhotoPreview()};rd.readAsDataURL(f)};
 $("#recipeForm").onsubmit=e=>{
  e.preventDefault();let id=$("#rid").value||uid("r"); let ingredients=parseIngredientLines($("#ring").value); let variants=collectVariantEditors();
- let existing=getRecipe(id);let r={id,name:$("#rname").value.trim(),photo:recipePhoto,servings:+$("#rserv").value,prep:+$("#rprep").value||0,cook:+$("#rcook").value||0,difficulty:$("#rdiff").value,category:$("#rcat").value,favorite:existing?.favorite||false,ingredients,info:$("#rinfo").value.trim(),steps:$("#rsteps").value.split("\n").map(x=>x.trim()).filter(Boolean),variants};
+ let existing=getRecipe(id);let r={id,name:$("#rname").value.trim(),photo:recipePhoto,servings:+$("#rserv").value,prep:+$("#rprep").value||0,cook:+$("#rcook").value||0,difficulty:$("#rdiff").value,category:$("#rcat").value,categories:[...new Set([$("#rcat").value,...[...document.querySelectorAll(".extra-cat:checked")].map(x=>x.value)])],favorite:existing?.favorite||false,ingredients,info:$("#rinfo").value.trim(),steps:$("#rsteps").value.split("\n").map(x=>x.trim()).filter(Boolean),variants};
  let ix=data.recipes.findIndex(x=>x.id===id);ix>=0?data.recipes[ix]=r:data.recipes.push(r);recipeDialog.close();save();
 };
 
@@ -808,7 +803,7 @@ function planning(){
 }
 window.drawPlanningCategory=cat=>{
  document.querySelectorAll(".plan-cat").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
- let rs=data.recipes.filter(r=>(r.category||"Autre")===cat).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+ let rs=data.recipes.filter(r=>(r.categories||[r.category||"Autre"]).includes(cat)).sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
  let letters=[...new Set(rs.map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
  $("#planCategoryPanel").innerHTML=`<label>Lettre<select id="planLetter"><option value="">Toutes les lettres</option>${letters.map(l=>`<option>${l}</option>`).join("")}</select></label><div id="planRecipeList"></div>`;
  const draw=()=>{let l=$("#planLetter").value,show=rs.filter(r=>!l||normalize(r.name).charAt(0).toUpperCase()===l);$("#planRecipeList").innerHTML=show.map(r=>`<button type="button" class="card recipe" style="width:100%;cursor:pointer;text-align:left" onclick="planRecipeFromPlanning('${r.id}')"><div class="thumb">${imgHTML(r)}</div><div><h3>${escapeHtml(r.name)}</h3><div class="muted">Choisir le jour ›</div></div></button>`).join("")||'<div class="empty">Aucune recette.</div>'};
@@ -817,9 +812,9 @@ window.drawPlanningCategory=cat=>{
 window.planRecipeFromPlanning=id=>{
  let r=getRecipe(id);$("#quickRecipeId").value=id;$("#quickPlanDate").value=dateKey(weekDates(weekOffset)[0]);$("#quickPlanServ").value=r?.servings||2;quickPlanDialog.showModal();
 };
-let planningTouchX=null,planningTouchY=null;
-view.addEventListener("touchstart",e=>{if(current!=="planning")return;planningTouchX=e.touches[0].clientX;planningTouchY=e.touches[0].clientY},{passive:true});
-view.addEventListener("touchend",e=>{if(current!=="planning"||planningTouchX===null)return;let dx=e.changedTouches[0].clientX-planningTouchX,dy=e.changedTouches[0].clientY-planningTouchY;planningTouchX=null;if(Math.abs(dx)>75&&Math.abs(dx)>Math.abs(dy)*1.5)changeWeek(dx<0?1:-1)},{passive:true});
+let touchStart=null;
+view.addEventListener("touchstart",e=>{if(current!=="planning")return;touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
+view.addEventListener("touchend",e=>{if(current!=="planning"||!touchStart)return;let dx=e.changedTouches[0].clientX-touchStart.x,dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5)changeWeek(dx<0?1:-1)},{passive:true});
 window.changeWeek=n=>{weekOffset+=n;planning()};
 window.openMeal=(k,slot)=>{
  $("#mdate").value=k;$("#mslot").value=slot;
@@ -933,15 +928,13 @@ function drawShop(){
  data.manual.forEach(x=>{let k="manual|"+x.id;items[k]={...x,key:k,manual:true}});
  let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
  let active=visible.filter(i=>!localShopChecked[i.key]), bought=visible.filter(i=>!!localShopChecked[i.key]);
- let query=window.shopSearchQuery||"";
- active=active.filter(i=>normalize(i.name).includes(normalize(query)));
- let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
- c.innerHTML=`<div class="card">
+ let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
+ c.innerHTML=`<div class="card"><div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div><button type="button" class="outline" onclick="syncCoursesNow()">↻ Synchroniser les courses</button>
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button type="button" class="shop-origin" title="Recettes concernées" onclick="event.stopPropagation();toggleShopOrigins('${encodeURIComponent(i.key)}')">│</button>`:""}<span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>${i.origins?.length?`<div class="shop-origin-panel" data-origin="${encodeURIComponent(i.key)}" hidden>${i.origins.map(n=>escapeHtml(n)).join(" · ")}</div>`:""}`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes">│</button>`:""}<span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
  ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
@@ -955,7 +948,7 @@ function drawShop(){
    const ds=weekDates(o),a=ds[0],b=ds[6],fmt=d=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
    return `${o===0?"Cette semaine":o===1?"Semaine prochaine":`Dans ${o} semaines`} · ${fmt(a)} au ${fmt(b)}`;
  };
- $("#shopSearch").oninput=e=>{window.shopSearchQuery=e.target.value;drawShop();$("#shopSearch").focus();$("#shopSearch").setSelectionRange(window.shopSearchQuery.length,window.shopSearchQuery.length)};
+ $("#shopSearchInput").oninput=e=>{window.shopSearch=e.target.value;drawShop();let inp=$("#shopSearchInput");inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)};
  $("#shopStartWeek").innerHTML=[0,1,2,3,4].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
  $("#shopStartWeek").value=startWeek;
  const maxWeeks=5-startWeek;
@@ -964,11 +957,8 @@ function drawShop(){
  $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
  $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
-window.toggleShopOrigins=k=>{let el=[...document.querySelectorAll("[data-origin]")].find(x=>x.dataset.origin===k);if(el)el.hidden=!el.hidden};
-window.syncCoursesNow=async()=>{
- if(!navigator.onLine){alert("Hors ligne : tes modifications restent disponibles sur cet appareil.");return}
- await pushRemote();await loadRemote();drawShop();
-};
+window.showShopOrigins=k=>{let key=decodeURIComponent(k),start=Math.min(4,+data.shoppingStartWeek||0),weeks=Math.min(data.shoppingWeeks||1,5-start),i=plannedIngredients(weeks,start)[key];alert(i?.origins?.length?"Recettes concernées :\n"+i.origins.join("\n"):"Aucune recette associée.")};
+window.syncCoursesNow=async()=>{if(!navigator.onLine){alert("Hors ligne : tes changements restent sur cet appareil.");return}if(!currentUser||!householdUuid){alert("Connexion nécessaire.");return}await pushRemote();alert("Envoi demandé. La résolution des conflits entre appareils n’est pas encore sécurisée.")};
 window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
 window.takeShopItem=(e,k,row)=>{if(e.target.closest("button"))return;let key=decodeURIComponent(k);localShopChecked[key]=true;saveLocalShopChecked();row.classList.add("done");setTimeout(drawShop,650)};
 window.restoreShopItem=k=>{delete localShopChecked[decodeURIComponent(k)];saveLocalShopChecked();drawShop()};
