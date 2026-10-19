@@ -245,6 +245,12 @@ header h1,.topbar h1{color:#355238!important}
 .variant-editor .variant-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .variant-editor textarea{margin-top:6px}
 .meal-variant{margin-top:7px;width:100%;padding:7px;border:1px solid var(--line);border-radius:10px;background:white}
+
+/* V4.8 — ergonomie mobile */
+#recipeDialog .dialogactions{position:sticky;bottom:0;z-index:5;background:#fffdf8;padding:12px 6px;box-shadow:0 -5px 14px #fffdf8}
+.shoprow{background:#fff;border:1px solid #eadfd4;border-radius:16px;margin:8px 0;padding:12px;box-shadow:0 2px 7px #51422b0b}
+.shop-origin{border:0;border-left:3px solid #87a77a;background:#eef3e9;color:#355238;border-radius:3px 9px 9px 3px;padding:8px 7px;cursor:pointer}
+.shop-origin-panel{font-size:12px;color:#50644b;padding:8px 12px;background:#f2f5ed;border-radius:12px;margin:0 0 7px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -341,9 +347,9 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialoghead"><h2>Ajouter un article</h2><button class="soft" onclick="manualDialog.close()">✕</button></div>
  <form id="manualForm">
   <label>Article<input id="manualName" required placeholder="Papier toilette"></label>
-  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<input id="manualUnit" placeholder="paquet"></label></div>
+  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<select id="manualUnit"><option value="unité">unité</option><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="L">L</option><option value="paquet">paquet</option><option value="boîte">boîte</option><option value="bouteille">bouteille</option><option value="rouleau">rouleau</option><option value="sachet">sachet</option></select></label></div>
   <label>Rayon
-    <input id="manualSection" list="shoppingSections" value="Autre">
+    <select id="manualSection"><option>Autre</option><option>Fruits & légumes</option><option>Œufs</option><option>Boucherie / Poissonnerie</option><option>Produits frais</option><option>Frais</option><option>Épicerie</option><option>Surgelés</option><option>Boulangerie</option><option>Boissons</option><option>Hygiène</option><option>Entretien</option><option>Maison</option><option>Animaux</option><option>Parapharmacie</option></select>
     <datalist id="shoppingSections">
       <option value="Fruits & légumes">
       <option value="Boucherie / Poissonnerie">
@@ -387,6 +393,11 @@ function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.strin
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
+document.querySelectorAll("dialog").forEach(d=>{
+ d.addEventListener("click",e=>{
+   if(e.target===d)d.close();
+ });
+});
 const detailDialog=$("#detailDialog");
 detailDialog.addEventListener("click",e=>{
  const r=detailDialog.getBoundingClientRect();
@@ -589,7 +600,7 @@ window.setFilter=c=>{recipeFilter=c;recipes()};
 function drawRecipes(q){
  let nq=normalize(q),letter=$("#recipeLetterSelect")?.value||"";
  let arr=data.recipes.filter(r=>{
-  let ok=recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter;
+  let ok=!!nq||recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.category||"Autre")===recipeFilter;
   let text=normalize(r.name+" "+(r.category||"Autre")+" "+r.ingredients.map(i=>i.name).join(" "));
   let first=normalize(r.name).charAt(0).toUpperCase();
   return ok&&(!nq||text.includes(nq))&&(!letter||first===letter);
@@ -806,6 +817,9 @@ window.drawPlanningCategory=cat=>{
 window.planRecipeFromPlanning=id=>{
  let r=getRecipe(id);$("#quickRecipeId").value=id;$("#quickPlanDate").value=dateKey(weekDates(weekOffset)[0]);$("#quickPlanServ").value=r?.servings||2;quickPlanDialog.showModal();
 };
+let planningTouchX=null,planningTouchY=null;
+view.addEventListener("touchstart",e=>{if(current!=="planning")return;planningTouchX=e.touches[0].clientX;planningTouchY=e.touches[0].clientY},{passive:true});
+view.addEventListener("touchend",e=>{if(current!=="planning"||planningTouchX===null)return;let dx=e.changedTouches[0].clientX-planningTouchX,dy=e.changedTouches[0].clientY-planningTouchY;planningTouchX=null;if(Math.abs(dx)>75&&Math.abs(dx)>Math.abs(dy)*1.5)changeWeek(dx<0?1:-1)},{passive:true});
 window.changeWeek=n=>{weekOffset+=n;planning()};
 window.openMeal=(k,slot)=>{
  $("#mdate").value=k;$("#mslot").value=slot;
@@ -882,8 +896,8 @@ function plannedIngredients(weeks,startOffset=0){
  let grouped={};
  for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
    let nk=shoppingNameKey(i.name),ui=shoppingUnitInfo(i.unit);
-   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{}};
-   grouped[nk].sections.push(i.section||"Autre");
+   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{},origins:[]};
+   grouped[nk].sections.push(i.section||"Autre");grouped[nk].origins.push(r.name);
    let pk=ui.family;
    if(!grouped[nk].parts[pk])grouped[nk].parts[pk]={qty:0,family:ui.family,label:ui.label};
    grouped[nk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
@@ -896,7 +910,7 @@ function plannedIngredients(weeks,startOffset=0){
      let pa=shoppingSectionPriority(a,nk),pb=shoppingSectionPriority(b,nk);return (pa.rank??50)-(pb.rank??50)
    })[0]||"Autre";
    let parts=Object.values(g.parts),key="ingredient|"+nk;
-   out[key]={name:g.name,section,qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
+   out[key]={name:g.name,section,origins:[...new Set(g.origins)],qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
  });
  return out;
 }
@@ -919,13 +933,15 @@ function drawShop(){
  data.manual.forEach(x=>{let k="manual|"+x.id;items[k]={...x,key:k,manual:true}});
  let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
  let active=visible.filter(i=>!localShopChecked[i.key]), bought=visible.filter(i=>!!localShopChecked[i.key]);
+ let query=window.shopSearchQuery||"";
+ active=active.filter(i=>normalize(i.name).includes(normalize(query)));
  let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
  c.innerHTML=`<div class="card">
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button type="button" class="shop-origin" title="Recettes concernées" onclick="event.stopPropagation();toggleShopOrigins('${encodeURIComponent(i.key)}')">│</button>`:""}<span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>${i.origins?.length?`<div class="shop-origin-panel" data-origin="${encodeURIComponent(i.key)}" hidden>${i.origins.map(n=>escapeHtml(n)).join(" · ")}</div>`:""}`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
  ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
@@ -939,6 +955,7 @@ function drawShop(){
    const ds=weekDates(o),a=ds[0],b=ds[6],fmt=d=>d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
    return `${o===0?"Cette semaine":o===1?"Semaine prochaine":`Dans ${o} semaines`} · ${fmt(a)} au ${fmt(b)}`;
  };
+ $("#shopSearch").oninput=e=>{window.shopSearchQuery=e.target.value;drawShop();$("#shopSearch").focus();$("#shopSearch").setSelectionRange(window.shopSearchQuery.length,window.shopSearchQuery.length)};
  $("#shopStartWeek").innerHTML=[0,1,2,3,4].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
  $("#shopStartWeek").value=startWeek;
  const maxWeeks=5-startWeek;
@@ -947,6 +964,11 @@ function drawShop(){
  $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
  $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
+window.toggleShopOrigins=k=>{let el=[...document.querySelectorAll("[data-origin]")].find(x=>x.dataset.origin===k);if(el)el.hidden=!el.hidden};
+window.syncCoursesNow=async()=>{
+ if(!navigator.onLine){alert("Hors ligne : tes modifications restent disponibles sur cet appareil.");return}
+ await pushRemote();await loadRemote();drawShop();
+};
 window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
 window.takeShopItem=(e,k,row)=>{if(e.target.closest("button"))return;let key=decodeURIComponent(k);localShopChecked[key]=true;saveLocalShopChecked();row.classList.add("done");setTimeout(drawShop,650)};
 window.restoreShopItem=k=>{delete localShopChecked[decodeURIComponent(k)];saveLocalShopChecked();drawShop()};
