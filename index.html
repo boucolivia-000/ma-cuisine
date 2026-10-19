@@ -248,6 +248,21 @@ header h1,.topbar h1{color:#355238!important}
 /* 4.8.1 */
 #recipeDialog{max-height:90dvh}#recipeDialog .dialogbody{max-height:88dvh;overflow-y:auto}#recipeDialog .dialogactions{position:sticky;bottom:0;background:#fffdf8;padding:12px 4px;z-index:10;box-shadow:0 -5px 14px #fffdf8}
 .shoprow{border:1px solid #e5dfd4;border-radius:16px;margin:7px 0;padding:12px;background:#fffdfb;box-shadow:0 2px 5px #0000000a}.shop-origin{border:0;border-left:3px solid #7c9b72;background:#eef3e8;border-radius:6px;margin-right:8px;cursor:pointer;padding:8px}.shop-origin-panel{background:#f2f5ed;border-radius:10px;padding:8px;margin:4px 0 10px;font-size:13px}
+
+/* Nout Kaz 4.9 : shopping illustrations and watercolor recipe origins */
+.shop-ingredient-art{flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;border-radius:12px;background:#fff1e9;font-size:23px}
+.shop-origin{border:0;background:#fbe1d8;border-radius:50%;width:34px;height:34px;min-width:34px;margin-right:3px;padding:0;color:#a54c42;font-size:24px;line-height:1;box-shadow:0 2px 5px #ae775533}
+.origins-dialog{padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;max-width:min(94vw,480px)!important;width:min(94vw,480px)!important;max-height:88dvh!important;overflow:visible!important}
+.origins-dialog::backdrop{background:#292019aa;backdrop-filter:blur(2px)}
+.origins-wave{position:relative;max-height:85dvh;overflow:auto;padding:45px 26px 36px;background:radial-gradient(ellipse at 12% 14%,#ffe0cd 0,transparent 38%),radial-gradient(ellipse at 90% 94%,#ffd3a6 0,transparent 35%),#fff9ed;border:5px solid #f87b68;border-radius:35% 25% 30% 24% / 8% 10% 8% 10%;box-shadow:0 10px 30px #452f2440;color:#653b2c}
+.origins-title{display:flex;align-items:center;gap:12px;justify-content:center}.origins-art{font-size:43px;letter-spacing:-18px;padding-right:15px}.origins-title h2{font-size:clamp(21px,5vw,30px);color:#74372b;margin:0}.origins-hat{display:block;text-align:center;font-size:22px;color:#8b553b}
+.origins-ingredient{text-align:center;color:#3e6241;background:#e7ebc9;border-radius:20px;padding:9px;margin:19px auto 20px;max-width:90%;font-weight:750}
+.origins-recipes{display:grid;gap:11px}.origins-recipe{display:flex;align-items:center;gap:15px;text-align:left;width:100%;border:0;border-radius:30px;background:#ffe0c5;padding:14px 18px;font-size:16px;font-weight:750;color:#663a2b}.origins-recipe:nth-child(4n + 2){background:#f9c9d2}.origins-recipe:nth-child(4n + 3){background:#dfe9b5}.origins-recipe:nth-child(4n + 4){background:#ffe5a2}.origins-book{font-size:26px}
+.origins-close{position:absolute;top:12px;right:13px;background:#fff3d7;border:2px solid #eeb5a3;border-radius:50%;width:42px;height:42px;font-size:28px;color:#74372b;z-index:2}
+.detail-floating-actions{position:sticky;top:0;z-index:5;display:flex;justify-content:flex-end;gap:8px;padding:8px 0;background:linear-gradient(#fffaf5ee,#fffaf500)}
+.detail-floating-actions button{border-radius:99px;box-shadow:0 2px 6px #4c33201a}
+#recipeDialog .dialogactions,#mealDialog .dialogactions,#quickPlanDialog .dialogactions,#manualDialog .dialogactions{position:sticky;bottom:0;z-index:5;background:transparent;display:flex;gap:9px;justify-content:flex-end;padding:12px 0}
+#recipeDialog .dialogactions button,#mealDialog .dialogactions button,#quickPlanDialog .dialogactions button,#manualDialog .dialogactions button{border-radius:99px;box-shadow:0 3px 9px #46332230}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -340,14 +355,14 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialogactions"><button type="button" class="soft" onclick="quickPlanDialog.close()">Annuler</button><button type="button" class="primary" onclick="saveQuickPlan()">Ajouter au planning</button></div>
 </div></dialog>
 
+<dialog id="originsDialog" class="origins-dialog"><div class="origins-wave"><button type="button" class="origins-close" onclick="originsDialog.close()" aria-label="Fermer">×</button><div class="origins-title"><span class="origins-art">🧅🧄</span><div><span class="origins-hat">♧</span><h2>Recettes concernées</h2></div></div><p class="origins-ingredient" id="originsIngredient"></p><div id="originsRecipes" class="origins-recipes"></div></div></dialog>
 <dialog id="manualDialog"><div class="dialogbody">
  <div class="dialoghead"><h2>Ajouter un article</h2><button class="soft" onclick="manualDialog.close()">✕</button></div>
  <form id="manualForm">
   <label>Article<input id="manualName" required placeholder="Papier toilette"></label>
-  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<input id="manualUnit" placeholder="paquet"></label></div>
+  <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<select id="manualUnit"><option value="pièce">pièce</option><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="cl">cl</option><option value="L">L</option><option value="paquet">paquet</option><option value="boîte">boîte</option><option value="bouteille">bouteille</option><option value="sachet">sachet</option><option value="botte">botte</option><option value="tranche">tranche</option><option value="pot">pot</option></select></label></div>
   <label>Rayon
-    <input id="manualSection" list="shoppingSections" value="Autre">
-    <datalist id="shoppingSections">
+    <select id="manualSection">
       <option value="Fruits & légumes">
       <option value="Boucherie / Poissonnerie">
       <option value="Produits frais">
@@ -361,12 +376,13 @@ header h1,.topbar h1{color:#355238!important}
       <option value="Animaux">
       <option value="Parapharmacie">
       <option value="Autre">
-    </datalist></label>
+    </select></label>
   <div class="dialogactions"><button class="primary">Ajouter</button></div>
  </form>
 </div></dialog>
 
 <script>
+document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close()}));
 const KEY="noutKazLocalV4";
 const SUPABASE_URL="https://fnmeafiolmisbnvgtvhj.supabase.co";
 const SUPABASE_KEY="sb_publishable_MFJ9AbJQKzbGiuKcfQPoCg__8b_yaL3";
@@ -578,9 +594,9 @@ function recipes(){
  head("Recettes","Choisis une catégorie");
  const cats=recipeCategories();
  view.innerHTML=`<div class="actions2" style="margin-bottom:12px"><button class="outline" onclick="openBulkImport()">Importer plusieurs recettes</button></div>
- <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
  <div class="category-grid">${cats.map(c=>`<button type="button" class="category-tile ${recipeFilter===c?"active":""}" data-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("")}</div>
  <div class="alpha-row"><label>Lettre<select id="recipeLetterSelect"></select></label></div>
+ <div class="searchbar"><input id="rsearch" placeholder="🔎 Rechercher une recette ou un ingrédient…"></div>
  <div id="recipeList"></div>`;
  const letters=[...new Set(data.recipes.filter(r=>recipeFilter==="Toutes"||recipeFilter==="❤️ Favoris"&&r.favorite||(r.categories||[r.category||"Autre"]).includes(recipeFilter)).map(r=>normalize(r.name).charAt(0).toUpperCase()).filter(x=>/[A-Z]/.test(x)))].sort();
  $("#recipeLetterSelect").innerHTML=`<option value="">Toutes les lettres</option>${letters.map(l=>`<option value="${l}">${l}</option>`).join("")}`;
@@ -618,6 +634,7 @@ window.showDetail=function(id,mult=1,variantId=""){
  $("#detailBody").innerHTML=`
  <div class="dialoghead"><button class="soft" onclick="detailDialog.close()">←</button><div><button class="iconbtn" onclick="editRecipe('${base.id}')">✎</button><button class="iconbtn fav" onclick="toggleFavDetail('${base.id}')">${base.favorite?"♥":"♡"}</button></div></div>
  <button type="button" class="primary" style="width:100%;margin:8px 0 12px" onclick="planRecipeFromDetail('${base.id}','${variantId}')">📅 Planifier cette recette</button>
+ <div class="detail-floating-actions"><button class="outline" onclick="editRecipe('${base.id}')">✎ Modifier</button><button class="danger" onclick="deleteRecipe('${base.id}')">🗑 Supprimer</button></div>
  <div class="hero">${imgHTML(base)}</div>
  <h2>${escapeHtml(r.name)}</h2>${tabs}
  <div class="stats"><div class="stat"><b>${base.prep} min</b>Préparation</div><div class="stat"><b>${base.cook} min</b>Cuisson</div><div class="stat"><b>${escapeHtml(base.difficulty)}</b>Difficulté</div><div class="stat"><b>${servings}</b>Personnes</div></div>
@@ -626,7 +643,7 @@ window.showDetail=function(id,mult=1,variantId=""){
  ${r.info?`<div class="section-title"><h3>Info</h3></div><div class="notice">${escapeHtml(r.info).replace(/\n/g,"<br>")}</div>`:""}
  <div class="section-title"><h3>Étapes</h3></div>
  ${r.steps.map((st,i)=>`<div class="step"><span class="stepnum">${i+1}</span><span>${escapeHtml(st)}</span></div>`).join("")}
- <div class="actions2" style="margin-top:16px"><button class="outline" onclick="editRecipe('${base.id}')">Modifier</button><button class="danger" onclick="deleteRecipe('${base.id}')">Supprimer</button></div>`;
+`;
  detailDialog.showModal();
 }
 window.changeDetailServ=(id,sv,variantId="")=>{let r=getRecipe(id);showDetail(id,sv/r.servings,variantId)};
@@ -797,9 +814,12 @@ function planning(){
     let m=p[slot],rs=mealRecipes(m);return `<div class="meal" onclick="openMeal('${k}','${slot}')">${rs.length?`<div class="mealstack">${rs.map(x=>`<button type="button" class="mealchip planning-recipe-link" onclick="event.stopPropagation();showDetail('${x.r.id}')" style="border:0;cursor:pointer;text-align:left">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}<div class="muted">${m.servings||rs[0].r.servings} pers. · toucher autour pour modifier le repas</div></div>`:"＋ Ajouter"}</div>`}).join("")}`;
  });
  view.innerHTML=`<div class="weekbar"><button onclick="changeWeek(-1)">‹</button><b>${weekLabel(weekOffset)}</b><button onclick="changeWeek(1)">›</button></div>
- <div class="card"><div class="week">${cells}</div></div>
+ <div class="card" id="planningSwipeArea"><div class="week">${cells}</div></div>
  <div class="actions2"><button class="soft" onclick="weekOffset=0;planning()">Cette semaine</button><button class="outline" onclick="copyWeek()">Dupliquer la semaine</button></div>
  <div class="card" style="margin-top:13px"><h3>Historique récent</h3>${historyHTML()}</div>`;
+ const swipe=document.getElementById('planningSwipeArea');let sx=0,sy=0;
+ swipe.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+ swipe.addEventListener('touchend',e=>{let dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5)changeWeek(dx<0?1:-1)},{passive:true});
 }
 window.drawPlanningCategory=cat=>{
  document.querySelectorAll(".plan-cat").forEach(b=>b.classList.toggle("active",b.dataset.cat===cat));
@@ -889,10 +909,10 @@ function shoppingSectionPriority(section,nameKey){
 }
 function plannedIngredients(weeks,startOffset=0){
  let grouped={};
- for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
+ for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r,item})=>{let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
    let nk=shoppingNameKey(i.name),ui=shoppingUnitInfo(i.unit);
-   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{},origins:[]};
-   grouped[nk].sections.push(i.section||"Autre");grouped[nk].origins.push(r.name);
+   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{},origins:[],originRefs:[]};
+   grouped[nk].sections.push(i.section||"Autre");grouped[nk].origins.push(r._variantName?`${r._baseName} – ${r._variantName}`:r.name);grouped[nk].originRefs.push({id:item.recipeId,variantId:item.variantId||"",name:r._variantName?`${r._baseName} – ${r._variantName}`:r.name});
    let pk=ui.family;
    if(!grouped[nk].parts[pk])grouped[nk].parts[pk]={qty:0,family:ui.family,label:ui.label};
    grouped[nk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
@@ -905,7 +925,7 @@ function plannedIngredients(weeks,startOffset=0){
      let pa=shoppingSectionPriority(a,nk),pb=shoppingSectionPriority(b,nk);return (pa.rank??50)-(pb.rank??50)
    })[0]||"Autre";
    let parts=Object.values(g.parts),key="ingredient|"+nk;
-   out[key]={name:g.name,section,origins:[...new Set(g.origins)],qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
+   out[key]={name:g.name,section,origins:[...new Set(g.origins)],originRefs:g.originRefs.filter((x,i,a)=>a.findIndex(y=>y.id===x.id&&y.variantId===x.variantId)===i),qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
  });
  return out;
 }
@@ -929,13 +949,14 @@ function drawShop(){
  let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
  let active=visible.filter(i=>!localShopChecked[i.key]), bought=visible.filter(i=>!!localShopChecked[i.key]);
  let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
- c.innerHTML=`<div class="card"><div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div><button type="button" class="outline" onclick="syncCoursesNow()">↻ Synchroniser les courses</button>
+ c.innerHTML=`<div class="card"><button type="button" class="outline" onclick="syncCoursesNow()">↻ Synchroniser les courses</button>
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes">│</button>`:""}<span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
- ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
+ <div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div>
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes">♧</button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
  <button class="chipfilter" onclick="quickManual('Entretien')">🧹 Entretien</button>
@@ -957,7 +978,30 @@ function drawShop(){
  $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
  $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
-window.showShopOrigins=k=>{let key=decodeURIComponent(k),start=Math.min(4,+data.shoppingStartWeek||0),weeks=Math.min(data.shoppingWeeks||1,5-start),i=plannedIngredients(weeks,start)[key];alert(i?.origins?.length?"Recettes concernées :\n"+i.origins.join("\n"):"Aucune recette associée.")};
+window.showShopOrigins=k=>{
+ const key=decodeURIComponent(k),start=Math.min(4,+data.shoppingStartWeek||0),weeks=Math.min(data.shoppingWeeks||1,5-start);
+ const item=plannedIngredients(weeks,start)[key];
+ if(!item)return;
+ document.getElementById('originsIngredient').textContent='Ingrédient : '+item.name;
+ const refs=item.originRefs||[];
+ document.getElementById('originsRecipes').innerHTML=refs.length?refs.map((ref,index)=>{
+  const label=escapeHtml(ref.name);
+  return `<button class="origins-recipe" type="button" data-index="${index}"><span class="origins-book">📖</span><span>${label}</span></button>`;
+ }).join(''):'<p>Aucune recette programmée pour cet ingrédient.</p>';
+ document.querySelectorAll('.origins-recipe').forEach(btn=>btn.onclick=()=>{
+  const ref=refs[+btn.dataset.index];
+  if(!ref)return;
+  originsDialog.close();showDetail(ref.id,1,ref.variantId);
+  detailDialog.addEventListener('close',()=>{if(!originsDialog.open)originsDialog.showModal()},{once:true});
+ });
+ originsDialog.showModal();
+};
+function ingredientSymbol(name){
+ const n=normalize(name);
+ const patterns=[[/ail|garlic/,"🧄"],[/oignon|echalote/,"🧅"],[/tomate/,"🍅"],[/courgette|concombre|cornichon/,"🥒"],[/carotte/,"🥕"],[/aubergine/,"🍆"],[/avocat/,"🥑"],[/banane/,"🍌"],[/brocoli|chou|pak choi/,"🥦"],[/citron|orange/,"🍋"],[/mangue|peche|abricot/,"🥭"],[/pomme de terre|patate douce/,"🥔"],[/pomme|poire/,"🍎"],[/poivron|piment/,"🫑"],[/salade|mache|roquette|epinard|blette|persil|coriandre|ciboulette|basilic|aneth|thym|origan/,"🥬"],[/champignon/,"🍄"],[/riz|quinoa|boulgour|semoule|epeautre/,"🍚"],[/pate|nouille|cannelloni|lasagne/,"🍝"],[/pain|piadina|tortilla/,"🥖"],[/poulet|dinde/,"🍗"],[/poisson|saumon|cabillaud|truite|thon|sardine/,"🐟"],[/crevette|calamar|moule/,"🦐"],[/oeuf|jaune d/,"🥚"],[/fromage|parmesan|mozzarella|ricotta/,"🧀"],[/lait|creme|yaourt|skyr/,"🥛"],[/huile|vinaigre|sauce/,"🫙"],[/chocolat|cacao/,"🍫"],[/fraise|fruits rouges|cerise/,"🍓"],[/noix|amande|noisette|cacahuete/,"🥜"],[/farine|levure|sucre/,"🥣"],[/sel|poivre|curry|cumin|curcuma|paprika|cannelle|epice|safran/,"🧂"],[/miel|sirop/,"🍯"]];
+ return (patterns.find(([rx])=>rx.test(n))||[null,"🛒"])[1];
+}
+
 window.syncCoursesNow=async()=>{if(!navigator.onLine){alert("Hors ligne : tes changements restent sur cet appareil.");return}if(!currentUser||!householdUuid){alert("Connexion nécessaire.");return}await pushRemote();alert("Envoi demandé. La résolution des conflits entre appareils n’est pas encore sécurisée.")};
 window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
 window.takeShopItem=(e,k,row)=>{if(e.target.closest("button"))return;let key=decodeURIComponent(k);localShopChecked[key]=true;saveLocalShopChecked();row.classList.add("done");setTimeout(drawShop,650)};
