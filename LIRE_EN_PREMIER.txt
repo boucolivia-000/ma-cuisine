@@ -1,13 +1,9 @@
-CAP AGRÉG’ V3.2 — VERSION AUTONOME
+Cap Agrég’ V3.3 — palettes intégrées
 
-Correction structurelle : le Cahier Studio et sa palette sont maintenant directement inclus dans index.html. Le chargement de studio.js n'est plus nécessaire pour afficher les nouveautés.
+Décompresser puis remplacer TOUS les fichiers du dépôt GitHub par les fichiers de ce dossier, à la racine du dépôt. Valider (Commit changes).
 
-Installation : décompresser puis déposer les fichiers à la racine du dépôt GitHub cap-agreg en remplaçant les anciens, puis Commit changes. Ne pas supprimer d'autres fichiers. Attendre la publication.
+Dans le Cahier Studio, vérifier le titre V3.3 et les huit grandes couleurs.
 
-Repère visuel : badge V3.2 à côté du nom Cap Agrég’ et titre 'Cahier Studio — V3.2 · Palette visible'.
+Aucune modification de la base Supabase ni des données des fiches. Ne pas effacer les données du navigateur.
 
-Dans le cahier : sélectionner du texte et cliquer sur une des 4 couleurs de police ou des 4 couleurs de surlignage.
-
-Supabase : aucun changement des paramètres ni de la base. Ne jamais publier de clé secrète.
-
-Cette version a été contrôlée statiquement (syntaxe JS et fichiers), mais pas testée sur votre site publié.
+Important : le navigateur peut afficher l’ancienne version jusqu’à la publication GitHub Pages et à la prochaine actualisation du service worker.
