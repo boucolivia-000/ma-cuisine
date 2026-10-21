@@ -1,14 +1,13 @@
-CAP AGRÉG’ V3.1 — VERSION COMPLÈTE
+CAP AGRÉG’ V3.2 — VERSION AUTONOME
 
-Cette archive contient TOUS les fichiers à déposer à la racine du dépôt GitHub cap-agreg.
+Correction structurelle : le Cahier Studio et sa palette sont maintenant directement inclus dans index.html. Le chargement de studio.js n'est plus nécessaire pour afficher les nouveautés.
 
-1. Décompresser le ZIP.
-2. Sur GitHub, remplacer tous les fichiers existants par ceux de l'archive (ne pas supprimer d'autres fichiers ni les données Supabase).
-3. Valider les changements (Commit changes), attendre la coche verte Actions.
-4. Ouvrir Cap Agrég’, créer/ouvrir une fiche et choisir Cahier numérique.
-5. Le titre 'Cahier Studio — Couleurs V3.1' confirme que la nouvelle version est chargée.
-6. Sélectionner du texte, puis cliquer sur une grande pastille de couleur.
+Installation : décompresser puis déposer les fichiers à la racine du dépôt GitHub cap-agreg en remplaçant les anciens, puis Commit changes. Ne pas supprimer d'autres fichiers. Attendre la publication.
 
-La configuration Supabase se conserve dans le navigateur ; si nécessaire se reconnecter dans Sync.
-ATTENTION : ne pas inclure de clés secrètes Supabase dans les fichiers publics.
-Fonctions non incluses : IA, gestion avancée des PDF, schémas automatiques complexes.
+Repère visuel : badge V3.2 à côté du nom Cap Agrég’ et titre 'Cahier Studio — V3.2 · Palette visible'.
+
+Dans le cahier : sélectionner du texte et cliquer sur une des 4 couleurs de police ou des 4 couleurs de surlignage.
+
+Supabase : aucun changement des paramètres ni de la base. Ne jamais publier de clé secrète.
+
+Cette version a été contrôlée statiquement (syntaxe JS et fichiers), mais pas testée sur votre site publié.
