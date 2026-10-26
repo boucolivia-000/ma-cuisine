@@ -1,0 +1,64 @@
+NOM: Mon assiette personnalisée
+CATÉGORIE: Plat
+PORTIONS: 2
+PRÉPARATION: 20
+CUISSON: 25
+DIFFICULTÉ: Facile
+
+INGRÉDIENTS:
+1 | c. à soupe | huile d'olive | Épicerie
+
+CHOIX PROTÉINE: 1
+OPTION: Poulet grillé
+INGRÉDIENTS:
+300 | g | filet de poulet | Viandes
+1 | c. à café | paprika | Épicerie
+ÉTAPES:
+Couper le poulet en morceaux.
+Assaisonner avec le paprika.
+Griller à la poêle jusqu'à cuisson complète.
+
+OPTION: Saumon grillé
+INGRÉDIENTS:
+300 | g | filet de saumon | Poissonnerie
+1 | unité | citron | Fruits et légumes
+ÉTAPES:
+Assaisonner le saumon avec le citron.
+Cuire à la poêle jusqu'à cuisson complète.
+
+CHOIX LÉGUMES: 1
+OPTION: Courgettes et champignons
+INGRÉDIENTS:
+2 | unités | courgettes | Fruits et légumes
+200 | g | champignons | Fruits et légumes
+ÉTAPES:
+Laver et émincer les légumes.
+Faire revenir à la poêle jusqu'à tendreté.
+
+OPTION: Brocoli et avocat
+INGRÉDIENTS:
+1 | unité | brocoli | Fruits et légumes
+1 | unité | avocat | Fruits et légumes
+ÉTAPES:
+Cuire le brocoli à la vapeur.
+Couper l'avocat en tranches et servir avec le brocoli.
+
+CHOIX SAUCE: 1
+OPTION: Moutarde et herbes
+INGRÉDIENTS:
+2 | c. à soupe | crème végétale | Frais
+1 | c. à café | moutarde | Épicerie
+ÉTAPES:
+Mélanger la crème végétale et la moutarde.
+Réchauffer doucement.
+
+OPTION: Citron et herbes
+INGRÉDIENTS:
+1 | unité | citron | Fruits et légumes
+1 | c. à café | persil | Fruits et légumes
+ÉTAPES:
+Presser le citron et mélanger avec le persil.
+
+ASSEMBLAGE:
+Disposer la protéine et les légumes dans l'assiette.
+Ajouter la sauce choisie au moment de servir.

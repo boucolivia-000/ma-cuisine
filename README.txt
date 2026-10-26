@@ -1,0 +1,1 @@
+Nout’ Kaz V5.1.0 — Recettes modulables. Import: CHOIX PROTÉINE: 1, OPTION: ..., INGRÉDIENTS:, ÉTAPES:, ASSEMBLAGE:. Les choix sont conservés au planning et appliqués aux courses. Sauvegarder les données JSON avant mise à jour. Tests en navigateur connecté à Supabase nécessaires.
