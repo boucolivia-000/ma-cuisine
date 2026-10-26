@@ -263,6 +263,25 @@ header h1,.topbar h1{color:#355238!important}
 .detail-floating-actions button{border-radius:99px;box-shadow:0 2px 6px #4c33201a}
 #recipeDialog .dialogactions,#mealDialog .dialogactions,#quickPlanDialog .dialogactions,#manualDialog .dialogactions{position:sticky;bottom:0;z-index:5;background:transparent;display:flex;gap:9px;justify-content:flex-end;padding:12px 0}
 #recipeDialog .dialogactions button,#mealDialog .dialogactions button,#quickPlanDialog .dialogactions button,#manualDialog .dialogactions button{border-radius:99px;box-shadow:0 3px 9px #46332230}
+
+/* V4.9.1: Nout’ Kaz watercolor origins + essentials */
+.shop-origin{display:inline-grid;place-items:center;color:#8d5141;background:#ffe1d3;border:1px solid #f6b9a8}
+.shop-origin svg{width:24px;height:24px}
+.origins-dialog{width:min(95vw,490px)!important;max-height:88dvh!important;overflow:visible!important}
+.origins-wave{border:0;clip-path:polygon(0% 10%,3% 6%,9% 4%,15% 5%,22% 3%,30% 5%,38% 2%,47% 4%,55% 1%,64% 4%,72% 2%,81% 5%,90% 3%,96% 7%,100% 13%,98% 22%,100% 31%,97% 40%,100% 50%,97% 60%,100% 69%,98% 80%,100% 90%,96% 96%,88% 98%,79% 96%,70% 99%,61% 97%,52% 100%,43% 97%,34% 99%,25% 96%,16% 99%,8% 96%,2% 92%,0% 83%,2% 74%,0% 64%,3% 54%,0% 44%,3% 34%,0% 24%);background:radial-gradient(ellipse at 8% 12%,#ffbd9f99,transparent 34%),radial-gradient(ellipse at 95% 85%,#ffd67a99,transparent 38%),radial-gradient(ellipse at 10% 88%,#f6abc088,transparent 30%),#fff9ed;padding:54px 28px 44px;outline:0;box-shadow:none;isolation:isolate}
+.origins-wave:before{content:"";position:absolute;inset:0;background:#f97868;clip-path:inherit;z-index:-2}
+.origins-wave:after{content:"";position:absolute;inset:7px;background:radial-gradient(ellipse at 7% 14%,#ffddc9,transparent 35%),radial-gradient(ellipse at 91% 91%,#ffdf9b,transparent 37%),#fffaf0;clip-path:inherit;z-index:-1}
+.origins-title{display:flex;gap:8px;align-items:center;justify-content:space-between;min-height:125px}
+.origins-title>div{flex:1;text-align:center}.origins-title h2{font-size:clamp(24px,5.5vw,32px);line-height:1.15;color:#713c2c}
+.origins-hat{display:flex;justify-content:center;color:#8c5740;margin-bottom:8px}.origins-hat svg{width:27px;height:27px}
+.origins-art{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 92px;font-size:49px;letter-spacing:0;padding:0;line-height:.88;filter:drop-shadow(0 3px 3px #7a4b3333)}
+.origins-onion{transform:rotate(-12deg)}.origins-garlic{font-size:36px;transform:rotate(12deg);margin-left:34px;margin-top:-7px}
+.origins-ingredient{background:#e5ebc4;color:#3d623c;font-size:17px;border-radius:25px;padding:12px 8px;margin:12px auto 24px}
+.origins-recipes{gap:12px}.origins-recipe{min-height:66px;padding:13px 16px;background:#ffddbf;color:#69392d;border-radius:35px;font-size:17px;box-shadow:inset 0 1px 2px #fff8}.origins-recipe:nth-child(4n + 2){background:#ffd1da}.origins-recipe:nth-child(4n + 3){background:#dfeaa9}.origins-recipe:nth-child(4n + 4){background:#ffe7a2}.origins-book{color:#874b39;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
+.origins-close{top:16px;right:17px;width:45px;height:45px;background:#fff2d8;border:2px solid #efb59e}
+.essentials-launch{margin:12px 0}.essentials-launch-button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:22px;background:#fff0e6;color:#744536;font-weight:700}.essentials-launch-button span{font-size:12px;font-weight:400}
+.essentials-dialog{max-height:90dvh;max-width:min(94vw,550px)}.essentials-dialog .dialogbody{max-height:87dvh;overflow:auto}.essential-row{display:flex;gap:7px;align-items:center;border-bottom:1px solid #eadfd7;padding:10px 0}.essential-check{flex:1;display:flex;align-items:center;gap:9px;margin:0}.essential-check input{width:20px;height:20px}.essential-check span{display:flex;flex-direction:column;gap:3px}.essential-check small{color:#867b70}.essential-row button{padding:7px;min-width:32px}.essentials-form{background:#fff8f0;border-radius:18px;padding:14px;margin-top:14px}.essentials-submit{position:sticky;bottom:0;z-index:5;padding:10px 0;background:#fffaf1}.essentials-submit button{width:100%;border-radius:99px}
+@media(max-width:390px){.origins-wave{padding:50px 18px 35px}.origins-art{flex-basis:73px;font-size:40px}.origins-title h2{font-size:23px}.origins-recipe{font-size:15px;padding:12px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -355,27 +374,39 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialogactions"><button type="button" class="soft" onclick="quickPlanDialog.close()">Annuler</button><button type="button" class="primary" onclick="saveQuickPlan()">Ajouter au planning</button></div>
 </div></dialog>
 
-<dialog id="originsDialog" class="origins-dialog"><div class="origins-wave"><button type="button" class="origins-close" onclick="originsDialog.close()" aria-label="Fermer">×</button><div class="origins-title"><span class="origins-art">🧅🧄</span><div><span class="origins-hat">♧</span><h2>Recettes concernées</h2></div></div><p class="origins-ingredient" id="originsIngredient"></p><div id="originsRecipes" class="origins-recipes"></div></div></dialog>
+<dialog id="originsDialog" class="origins-dialog"><div class="origins-wave"><button type="button" class="origins-close" onclick="originsDialog.close()" aria-label="Fermer">×</button><div class="origins-title"><span class="origins-art" aria-hidden="true"><span class="origins-onion">🧅</span><span class="origins-garlic">🧄</span></span><div><span class="origins-hat"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></span><h2>Recettes concernées</h2></div></div><p class="origins-ingredient" id="originsIngredient"></p><div id="originsRecipes" class="origins-recipes"></div></div></dialog>
+<dialog id="essentialsDialog" class="essentials-dialog"><div class="dialogbody">
+ <div class="dialoghead"><h2>🧺 Mes indispensables</h2><button class="soft" type="button" onclick="essentialsDialog.close()">✕</button></div>
+ <p class="muted">Sélectionne les produits à ajouter à tes courses. Ton catalogue reste enregistré.</p>
+ <div class="searchbar"><input id="essentialsSearch" placeholder="Rechercher un indispensable…" oninput="renderEssentials()"></div>
+ <div id="essentialsList"></div>
+ <form id="essentialsForm" class="essentials-form"><h3 id="essentialsFormTitle">Ajouter un indispensable</h3><input type="hidden" id="essentialEditId">
+ <label>Produit<input id="essentialName" required placeholder="Ex. Papier toilette"></label>
+ <div class="grid2"><label>Quantité<input id="essentialQty" type="number" min="0.01" step="0.01" value="1" required></label><label>Unité<select id="essentialUnit"><option>pièce</option><option>paquet</option><option>g</option><option>kg</option><option>ml</option><option>L</option><option>bouteille</option><option>pot</option><option>boîte</option><option>rouleau</option><option>flacon</option><option>sachet</option></select></label></div>
+ <label>Rayon<select id="essentialSection"><option>Épicerie</option><option>Fruits &amp; légumes</option><option>Produits frais</option><option>Hygiène</option><option>Entretien</option><option>Maison</option><option>Boulangerie</option><option>Boissons</option><option>Surgelés</option><option>Autre</option></select></label>
+ <div class="dialogactions"><button type="button" class="soft" onclick="resetEssentialForm()">Annuler</button><button type="submit" class="primary">Enregistrer le produit</button></div></form>
+ <div class="dialogactions essentials-submit"><button type="button" class="primary" onclick="addSelectedEssentials()">Ajouter la sélection aux courses</button></div>
+ </div></dialog>
 <dialog id="manualDialog"><div class="dialogbody">
  <div class="dialoghead"><h2>Ajouter un article</h2><button class="soft" onclick="manualDialog.close()">✕</button></div>
  <form id="manualForm">
   <label>Article<input id="manualName" required placeholder="Papier toilette"></label>
   <div class="grid2"><label>Quantité<input id="manualQty" type="number" step="0.01" value="1"></label><label>Unité<select id="manualUnit"><option value="pièce">pièce</option><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="cl">cl</option><option value="L">L</option><option value="paquet">paquet</option><option value="boîte">boîte</option><option value="bouteille">bouteille</option><option value="sachet">sachet</option><option value="botte">botte</option><option value="tranche">tranche</option><option value="pot">pot</option></select></label></div>
   <label>Rayon
-    <select id="manualSection">
-      <option value="Fruits & légumes">
-      <option value="Boucherie / Poissonnerie">
-      <option value="Produits frais">
-      <option value="Épicerie">
-      <option value="Surgelés">
-      <option value="Boulangerie">
-      <option value="Boissons">
-      <option value="Hygiène">
-      <option value="Entretien">
-      <option value="Maison">
-      <option value="Animaux">
-      <option value="Parapharmacie">
-      <option value="Autre">
+    <select id="manualSection" style="color:#344a36;background-color:#fffdf8">
+      <option value="Fruits & légumes">Fruits & légumes</option>
+      <option value="Boucherie / Poissonnerie">Boucherie / Poissonnerie</option>
+      <option value="Produits frais">Produits frais</option>
+      <option value="Épicerie">Épicerie</option>
+      <option value="Surgelés">Surgelés</option>
+      <option value="Boulangerie">Boulangerie</option>
+      <option value="Boissons">Boissons</option>
+      <option value="Hygiène">Hygiène</option>
+      <option value="Entretien">Entretien</option>
+      <option value="Maison">Maison</option>
+      <option value="Animaux">Animaux</option>
+      <option value="Parapharmacie">Parapharmacie</option>
+      <option value="Autre">Autre</option>
     </select></label>
   <div class="dialogactions"><button class="primary">Ajouter</button></div>
  </form>
@@ -399,7 +430,7 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 ],planning:{},checked:{},manual:[],pantry:[],history:[],shoppingWeeks:1,shoppingGeneratedAt:null};
 
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
-if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[]; if(data.shoppingStartWeek==null)data.shoppingStartWeek=0;
+if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[]; if(!Array.isArray(data.essentials))data.essentials=defaultEssentials(); if(data.shoppingStartWeek==null)data.shoppingStartWeek=0;
 const SHOP_CHECKED_KEY="nout-kaz-shopping-checked-v1";
 let localShopChecked=JSON.parse(localStorage.getItem(SHOP_CHECKED_KEY)||"{}");
 function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.stringify(localShopChecked))}
@@ -457,7 +488,7 @@ async function loadRemote(){
  if(remoteHasContent && Object.keys(remote).length>1){
    isApplyingRemote=true;
    data={...seed,...remote};
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
  }else{
@@ -954,8 +985,9 @@ function drawShop(){
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
+ <div class="card essentials-launch"><button type="button" class="outline essentials-launch-button" onclick="openEssentials()">🧺 Mes indispensables <span>Choisir les produits récurrents</span></button></div>
  <div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes">♧</button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
  ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
@@ -986,7 +1018,7 @@ window.showShopOrigins=k=>{
  const refs=item.originRefs||[];
  document.getElementById('originsRecipes').innerHTML=refs.length?refs.map((ref,index)=>{
   const label=escapeHtml(ref.name);
-  return `<button class="origins-recipe" type="button" data-index="${index}"><span class="origins-book">📖</span><span>${label}</span></button>`;
+  return `<button class="origins-recipe" type="button" data-index="${index}"><span class="origins-book"><svg viewBox="0 0 24 24" width="31" height="31" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c-3-2-7-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-3-1-7-1-10 1Z"/><path d="M12 5v15"/></svg></span><span>${label}</span></button>`;
  }).join(''):'<p>Aucune recette programmée pour cet ingrédient.</p>';
  document.querySelectorAll('.origins-recipe').forEach(btn=>btn.onclick=()=>{
   const ref=refs[+btn.dataset.index];
@@ -1001,6 +1033,34 @@ function ingredientSymbol(name){
  const patterns=[[/ail|garlic/,"🧄"],[/oignon|echalote/,"🧅"],[/tomate/,"🍅"],[/courgette|concombre|cornichon/,"🥒"],[/carotte/,"🥕"],[/aubergine/,"🍆"],[/avocat/,"🥑"],[/banane/,"🍌"],[/brocoli|chou|pak choi/,"🥦"],[/citron|orange/,"🍋"],[/mangue|peche|abricot/,"🥭"],[/pomme de terre|patate douce/,"🥔"],[/pomme|poire/,"🍎"],[/poivron|piment/,"🫑"],[/salade|mache|roquette|epinard|blette|persil|coriandre|ciboulette|basilic|aneth|thym|origan/,"🥬"],[/champignon/,"🍄"],[/riz|quinoa|boulgour|semoule|epeautre/,"🍚"],[/pate|nouille|cannelloni|lasagne/,"🍝"],[/pain|piadina|tortilla/,"🥖"],[/poulet|dinde/,"🍗"],[/poisson|saumon|cabillaud|truite|thon|sardine/,"🐟"],[/crevette|calamar|moule/,"🦐"],[/oeuf|jaune d/,"🥚"],[/fromage|parmesan|mozzarella|ricotta/,"🧀"],[/lait|creme|yaourt|skyr/,"🥛"],[/huile|vinaigre|sauce/,"🫙"],[/chocolat|cacao/,"🍫"],[/fraise|fruits rouges|cerise/,"🍓"],[/noix|amande|noisette|cacahuete/,"🥜"],[/farine|levure|sucre/,"🥣"],[/sel|poivre|curry|cumin|curcuma|paprika|cannelle|epice|safran/,"🧂"],[/miel|sirop/,"🍯"]];
  return (patterns.find(([rx])=>rx.test(n))||[null,"🛒"])[1];
 }
+
+
+function defaultEssentials(){return [
+ {id:"e-sel",name:"Sel",qty:1,unit:"paquet",section:"Épicerie"},
+ {id:"e-poivre",name:"Poivre",qty:1,unit:"pot",section:"Épicerie"},
+ {id:"e-pq",name:"Papier toilette",qty:1,unit:"paquet",section:"Hygiène"},
+ {id:"e-essuie",name:"Essuie-tout",qty:1,unit:"paquet",section:"Entretien"},
+ {id:"e-vaisselle",name:"Liquide vaisselle",qty:1,unit:"flacon",section:"Entretien"}
+]}
+let essentialSelection=new Set();
+window.openEssentials=()=>{if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();essentialSelection.clear();resetEssentialForm();document.getElementById('essentialsSearch').value='';renderEssentials();essentialsDialog.showModal()};
+window.renderEssentials=()=>{
+ const q=normalize(document.getElementById('essentialsSearch')?.value||'');
+ document.getElementById('essentialsList').innerHTML=(data.essentials||[]).filter(x=>normalize(x.name).includes(q)).map(x=>`<div class="essential-row"><label class="essential-check"><input type="checkbox" data-essential-check="${escapeHtml(x.id)}" ${essentialSelection.has(x.id)?'checked':''}><span><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.qty)} ${escapeHtml(x.unit)} · ${escapeHtml(x.section)}</small></span></label><button type="button" class="soft" data-essential-edit="${escapeHtml(x.id)}" aria-label="Modifier ${escapeHtml(x.name)}">✎</button><button type="button" class="soft" data-essential-delete="${escapeHtml(x.id)}" aria-label="Supprimer ${escapeHtml(x.name)}">🗑</button></div>`).join('')||'<p class="muted">Aucun produit trouvé.</p>';
+ document.querySelectorAll('[data-essential-check]').forEach(el=>el.onchange=()=>{if(el.checked)essentialSelection.add(el.dataset.essentialCheck);else essentialSelection.delete(el.dataset.essentialCheck)});
+ document.querySelectorAll('[data-essential-edit]').forEach(el=>el.onclick=()=>editEssential(el.dataset.essentialEdit));
+ document.querySelectorAll('[data-essential-delete]').forEach(el=>el.onclick=()=>deleteEssential(el.dataset.essentialDelete));
+};
+window.resetEssentialForm=()=>{document.getElementById('essentialsForm').reset();document.getElementById('essentialEditId').value='';document.getElementById('essentialsFormTitle').textContent='Ajouter un indispensable'};
+window.editEssential=id=>{let x=data.essentials.find(v=>v.id===id);if(!x)return;document.getElementById('essentialEditId').value=x.id;document.getElementById('essentialName').value=x.name;document.getElementById('essentialQty').value=x.qty;document.getElementById('essentialUnit').value=x.unit;document.getElementById('essentialSection').value=x.section;document.getElementById('essentialsFormTitle').textContent='Modifier un indispensable';document.getElementById('essentialsForm').scrollIntoView({block:'nearest',behavior:'smooth'})};
+window.deleteEssential=id=>{if(!confirm('Supprimer ce produit de Mes indispensables ?'))return;data.essentials=data.essentials.filter(x=>x.id!==id);essentialSelection.delete(id);save(true);renderEssentials()};
+document.getElementById('essentialsForm').onsubmit=e=>{e.preventDefault();let id=document.getElementById('essentialEditId').value;let name=document.getElementById('essentialName').value.trim();if(!name)return;let x={id:id||uid('essential'),name,qty:Number(document.getElementById('essentialQty').value)||1,unit:document.getElementById('essentialUnit').value,section:document.getElementById('essentialSection').value};if(id){let i=data.essentials.findIndex(v=>v.id===id);if(i>=0)data.essentials[i]=x}else data.essentials.push(x);save(true);resetEssentialForm();renderEssentials()};
+window.addSelectedEssentials=()=>{
+ let added=0;const planned=plannedIngredients(Math.min(data.shoppingWeeks||1,5-(data.shoppingStartWeek||0)),data.shoppingStartWeek||0);
+ for(const id of essentialSelection){let x=data.essentials.find(v=>v.id===id);if(!x)continue;let nk=shoppingNameKey(x.name);let exists=data.manual.some(v=>shoppingNameKey(v.name)===nk)||Object.values(planned).some(v=>shoppingNameKey(v.name)===nk);if(exists)continue;data.manual.push({id:uid('m'),name:x.name,qty:x.qty,unit:x.unit,section:x.section});added++}
+ if(added)save(true);essentialsDialog.close();drawShop();
+ if(!added&&essentialSelection.size)alert('Ces produits figurent déjà dans la liste de courses.');
+};
 
 window.syncCoursesNow=async()=>{if(!navigator.onLine){alert("Hors ligne : tes changements restent sur cet appareil.");return}if(!currentUser||!householdUuid){alert("Connexion nécessaire.");return}await pushRemote();alert("Envoi demandé. La résolution des conflits entre appareils n’est pas encore sécurisée.")};
 window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
@@ -1037,7 +1097,7 @@ sb.channel("nout-kaz-shared")
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
    data={...seed,...incoming};
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
    setSyncStatus("✓ Mis à jour");
