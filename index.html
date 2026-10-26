@@ -432,10 +432,35 @@ steps:["Émincer l'oignon et l'ail.","Faire revenir dans l'huile d'olive.","Ajou
 let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(seed));
 if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manual)data.manual=[]; if(!Array.isArray(data.essentials))data.essentials=defaultEssentials(); if(data.shoppingStartWeek==null)data.shoppingStartWeek=0;
 const SHOP_CHECKED_KEY="nout-kaz-shopping-checked-v1";
+// V5: explicit shared shopping snapshot. It never regenerates on a normal render.
+const SHOP_LOCAL_BACKUP="nout-kaz-shopping-snapshot-v5";
+function shoppingRev(){return new Date().toISOString()+"-"+Math.random().toString(36).slice(2,8)}
+function shoppingSnapshot(){
+ if(data.shoppingList && Array.isArray(data.shoppingList.items))return data.shoppingList;
+ // One-time migration: preserve manual articles and the existing planned shopping list.
+ let initial=plannedIngredients(Math.min(data.shoppingWeeks||1,5-(data.shoppingStartWeek||0)),data.shoppingStartWeek||0);
+ (data.manual||[]).forEach(x=>initial['manual|'+x.id]={...x,key:'manual|'+x.id,manual:true});
+ data.shoppingList={items:Object.values(initial).filter(i=>i.manual||!pantryHas(i)),checked:{...localShopChecked},revision:shoppingRev(),cleared:false};
+ return data.shoppingList;
+}
+function markShoppingChanged(){
+ const shop=shoppingSnapshot();shop.revision=shoppingRev();
+ localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(shop));
+ save(true);
+}
+function acceptShopping(remote){
+ const theirs=remote?.shoppingList,ours=data.shoppingList;
+ if(!theirs || !Array.isArray(theirs.items))return;
+ const backup=JSON.parse(localStorage.getItem(SHOP_LOCAL_BACKUP)||'null');
+ const latest=[theirs,ours,backup].filter(x=>x&&Array.isArray(x.items)).sort((a,b)=>String(b.revision||'').localeCompare(String(a.revision||'')))[0];
+ if(latest){data.shoppingList=latest;localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(latest));}
+}
+
 let localShopChecked=JSON.parse(localStorage.getItem(SHOP_CHECKED_KEY)||"{}");
 function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.stringify(localShopChecked))}
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
+window.addEventListener("online",()=>{if(currentUser&&householdUuid&&data.shoppingList)pushRemote()});
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
 const detailDialog=$("#detailDialog");
@@ -460,6 +485,9 @@ async function pushRemote(){
  if(!currentUser||!householdUuid)return;
  try{
    setSyncStatus("☁ Synchronisation…");
+   const {data:currentRow,error:readError}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
+   if(readError)throw readError;
+   if(currentRow?.data)acceptShopping(currentRow.data);
    const payload={...data,_sync_updated_at:new Date().toISOString()};
    const {error}=await sb.from("nout_kaz_data")
      .update({data:payload,updated_at:new Date().toISOString()})
@@ -487,7 +515,7 @@ async function loadRemote(){
  const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
  if(remoteHasContent && Object.keys(remote).length>1){
    isApplyingRemote=true;
-   data={...seed,...remote};
+   const previousShop=data.shoppingList;data={...seed,...remote}; if(previousShop)data.shoppingList=previousShop;acceptShopping(remote);
    if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
@@ -975,19 +1003,18 @@ function drawShop(){
    <div class="card"><h3>Sauvegarde manuelle</h3><p class="muted">En attendant la synchronisation, tu peux sauvegarder tes données dans un fichier puis les restaurer sur un autre appareil.</p><div class="actions2"><button class="outline" onclick="exportData()">Exporter</button><label class="primary" style="margin:0;text-align:center;cursor:pointer">Importer<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label></div></div>`;
    return;
  }
- let startWeek=Math.min(4,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,5-startWeek), items=plannedIngredients(weeks,startWeek);
- data.manual.forEach(x=>{let k="manual|"+x.id;items[k]={...x,key:k,manual:true}});
- let visible=Object.values(items).filter(i=>i.manual||!pantryHas(i));
- let active=visible.filter(i=>!localShopChecked[i.key]), bought=visible.filter(i=>!!localShopChecked[i.key]);
+ let startWeek=Math.min(4,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,5-startWeek);
+ const shop=shoppingSnapshot();if(!shop.checked)shop.checked={};let visible=shop.items;
+ let active=visible.filter(i=>!shop.checked?.[i.key]), bought=visible.filter(i=>!!shop.checked?.[i.key]);
  let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
- c.innerHTML=`<div class="card"><button type="button" class="outline" onclick="syncCoursesNow()">↻ Synchroniser les courses</button>
+ c.innerHTML=`<div class="card"><div class="actions2"><button type="button" class="outline" onclick="syncCoursesNow()">💾 Enregistrer et synchroniser</button><button type="button" class="outline" onclick="openClearShopping()">🗑 Vider la liste</button></div><div class="muted">Liste enregistrée et partagée · Le planning reste indépendant.</div>
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
  <div class="card essentials-launch"><button type="button" class="outline essentials-launch-button" onclick="openEssentials()">🧺 Mes indispensables <span>Choisir les produits récurrents</span></button></div>
  <div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span>${i.manual?`<button type="button" class="iconbtn" onclick="event.stopPropagation();removeManual('${i.id}')">🗑</button>`:`<button type="button" class="iconbtn" title="Déjà à la maison" onclick="event.stopPropagation();addPantryFrom('${encodeURIComponent(i.name)}')">🏠</button>`}</div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span><button type="button" class="iconbtn" title="Retirer de la liste" onclick="event.stopPropagation();removeShopItem('${encodeURIComponent(i.key)}')">🗑</button></div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
  ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
@@ -1012,7 +1039,7 @@ function drawShop(){
 }
 window.showShopOrigins=k=>{
  const key=decodeURIComponent(k),start=Math.min(4,+data.shoppingStartWeek||0),weeks=Math.min(data.shoppingWeeks||1,5-start);
- const item=plannedIngredients(weeks,start)[key];
+ const item=shoppingSnapshot().items.find(i=>i.key===key);
  if(!item)return;
  document.getElementById('originsIngredient').textContent='Ingrédient : '+item.name;
  const refs=item.originRefs||[];
@@ -1056,18 +1083,36 @@ window.editEssential=id=>{let x=data.essentials.find(v=>v.id===id);if(!x)return;
 window.deleteEssential=id=>{if(!confirm('Supprimer ce produit de Mes indispensables ?'))return;data.essentials=data.essentials.filter(x=>x.id!==id);essentialSelection.delete(id);save(true);renderEssentials()};
 document.getElementById('essentialsForm').onsubmit=e=>{e.preventDefault();let id=document.getElementById('essentialEditId').value;let name=document.getElementById('essentialName').value.trim();if(!name)return;let x={id:id||uid('essential'),name,qty:Number(document.getElementById('essentialQty').value)||1,unit:document.getElementById('essentialUnit').value,section:document.getElementById('essentialSection').value};if(id){let i=data.essentials.findIndex(v=>v.id===id);if(i>=0)data.essentials[i]=x}else data.essentials.push(x);save(true);resetEssentialForm();renderEssentials()};
 window.addSelectedEssentials=()=>{
- let added=0;const planned=plannedIngredients(Math.min(data.shoppingWeeks||1,5-(data.shoppingStartWeek||0)),data.shoppingStartWeek||0);
- for(const id of essentialSelection){let x=data.essentials.find(v=>v.id===id);if(!x)continue;let nk=shoppingNameKey(x.name);let exists=data.manual.some(v=>shoppingNameKey(v.name)===nk)||Object.values(planned).some(v=>shoppingNameKey(v.name)===nk);if(exists)continue;data.manual.push({id:uid('m'),name:x.name,qty:x.qty,unit:x.unit,section:x.section});added++}
- if(added)save(true);essentialsDialog.close();drawShop();
+ const shop=shoppingSnapshot();let added=0;
+ for(const id of essentialSelection){const x=data.essentials.find(v=>v.id===id);if(!x)continue;
+ if(shop.items.some(v=>shoppingNameKey(v.name)===shoppingNameKey(x.name)))continue;
+ shop.items.push({...x,key:'manual|'+uid('m'),manual:true});added++;
+ }
+ if(added)markShoppingChanged();essentialsDialog.close();drawShop();
  if(!added&&essentialSelection.size)alert('Ces produits figurent déjà dans la liste de courses.');
 };
+window.removeShopItem=k=>{const shop=shoppingSnapshot(),key=decodeURIComponent(k);shop.items=shop.items.filter(i=>i.key!==key);delete shop.checked[key];markShoppingChanged();drawShop()};
+window.openClearShopping=()=>{document.getElementById('clearShoppingDialog').showModal()};
+window.clearShoppingConfirmed=()=>{const shop=shoppingSnapshot();shop.items=[];shop.checked={};shop.cleared=true;markShoppingChanged();document.getElementById('clearShoppingDialog').close();drawShop()};
 
-window.syncCoursesNow=async()=>{if(!navigator.onLine){alert("Hors ligne : tes changements restent sur cet appareil.");return}if(!currentUser||!householdUuid){alert("Connexion nécessaire.");return}await pushRemote();alert("Envoi demandé. La résolution des conflits entre appareils n’est pas encore sécurisée.")};
-window.generateShopping=()=>{localShopChecked={};saveLocalShopChecked();data.checked={};data.shoppingGeneratedAt=Date.now();save(true);drawShop()};
-window.takeShopItem=(e,k,row)=>{if(e.target.closest("button"))return;let key=decodeURIComponent(k);localShopChecked[key]=true;saveLocalShopChecked();row.classList.add("done");setTimeout(drawShop,650)};
-window.restoreShopItem=k=>{delete localShopChecked[decodeURIComponent(k)];saveLocalShopChecked();drawShop()};
+window.syncCoursesNow=async()=>{
+ if(!navigator.onLine){setSyncStatus('⚠ Sauvegardé sur cet appareil',true);return}
+ if(!currentUser||!householdUuid){setSyncStatus('⚠ Connexion nécessaire',true);return}
+ await pushRemote();drawShop();
+};
+window.generateShopping=()=>{
+ const shop=shoppingSnapshot(),planned=plannedIngredients(Math.min(data.shoppingWeeks||1,5-(data.shoppingStartWeek||0)),data.shoppingStartWeek||0);
+ // Regeneration is explicit. Keep manually added articles, avoiding duplicates.
+ const manual=shop.items.filter(i=>i.manual);
+ const items=Object.values(planned).filter(i=>!pantryHas(i));
+ manual.forEach(i=>{if(!items.some(v=>shoppingNameKey(v.name)===shoppingNameKey(i.name)))items.push(i)});
+ shop.items=items;shop.checked={};shop.cleared=false;
+ data.shoppingGeneratedAt=Date.now();markShoppingChanged();drawShop();
+};
+window.takeShopItem=(e,k,row)=>{if(e.target.closest('button'))return;const shop=shoppingSnapshot();shop.checked[decodeURIComponent(k)]=true;markShoppingChanged();row.classList.add('done');setTimeout(drawShop,400)};
+window.restoreShopItem=k=>{const shop=shoppingSnapshot();delete shop.checked[decodeURIComponent(k)];markShoppingChanged();drawShop()};
 window.quickManual=section=>{$("#manualSection").value=section;manualDialog.showModal()};
-$("#manualForm").onsubmit=e=>{e.preventDefault();data.manual.push({id:uid("m"),name:$("#manualName").value.trim(),qty:+$("#manualQty").value||1,unit:$("#manualUnit").value.trim(),section:$("#manualSection").value.trim()||"Autre"});manualDialog.close();e.target.reset();save(true);drawShop()};
+$("#manualForm").onsubmit=e=>{e.preventDefault();shoppingSnapshot().items.push({key:'manual|'+uid('m'),manual:true,name:$("#manualName").value.trim(),qty:+$("#manualQty").value||1,unit:$("#manualUnit").value.trim(),section:$("#manualSection").value.trim()||"Autre"});manualDialog.close();e.target.reset();markShoppingChanged();drawShop()};
 window.removeManual=id=>{data.manual=data.manual.filter(x=>x.id!==id);save(true);drawShop()};
 window.addPantryFrom=s=>{let n=decodeURIComponent(s);if(!data.pantry.some(p=>shoppingNameKey(p.name)===shoppingNameKey(n)))data.pantry.push({name:n});save(true);drawShop()};
 window.removePantry=i=>{data.pantry.splice(i,1);save(true);drawShop()};
@@ -1096,7 +1141,7 @@ sb.channel("nout-kaz-shared")
    lastRemoteUpdatedAt=payload.new.updated_at||lastRemoteUpdatedAt;
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
-   data={...seed,...incoming};
+   const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop)data.shoppingList=previousShop;acceptShopping(incoming);
    if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
@@ -1120,7 +1165,7 @@ setInterval(async()=>{
    lastRemoteUpdatedAt=row.updated_at||null;
    const incoming=row.data||{};
    if(JSON.stringify(incoming)!==JSON.stringify(data)){
-     isApplyingRemote=true;data={...seed,...incoming};
+     isApplyingRemote=true;const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop)data.shoppingList=previousShop;acceptShopping(incoming);
      if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
      localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
    }
@@ -1134,5 +1179,5 @@ if("serviceWorker" in navigator){
   }).catch(()=>{});
 }
 </script>
-</body>
+<dialog id="clearShoppingDialog" style="max-width:420px;border:2px solid #d88b78;border-radius:24px;padding:24px;background:#fff9f1;color:#55423a"><h3>Vider la liste de courses ?</h3><p>Tous les articles seront retirés de la liste commune. Les recettes, le planning et Mes indispensables seront conservés.</p><div class="actions2"><button class="outline" type="button" onclick="clearShoppingDialog.close()">Annuler</button><button class="primary" type="button" onclick="clearShoppingConfirmed()">Oui, vider la liste</button></div></dialog></body>
 </html>
