@@ -59,12 +59,12 @@ textarea{resize:vertical}
 .quick.green{background:var(--green);color:#fff}
 .weekbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
 .weekbar button{border:0;background:none;font-size:23px}
-.week{display:grid;grid-template-columns:68px 1fr 1fr;background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}
+.week{display:grid;grid-template-columns:60px minmax(0,1fr) minmax(0,1fr);background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}
 .week>div{padding:9px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:57px}
 .week>div:nth-child(3n){border-right:0}
-.week .head{min-height:auto;background:#f3eee8;text-align:center;font-weight:800}
+.week .head{min-height:auto;background:#f3eee8;text-align:center;font-weight:800;overflow-wrap:anywhere;font-size:clamp(11px,3vw,15px);line-height:1.25}
 .day{text-align:center;font-size:12px}
-.meal{font-size:12px;cursor:pointer}
+.meal{font-size:12px;cursor:pointer;min-width:0;overflow-wrap:anywhere}
 .mealchip{background:#e9f1e6;border-radius:10px;padding:7px;line-height:1.2}
 .group h3{display:flex;justify-content:space-between;align-items:center}
 .shoprow input[type=checkbox],.pantryrow input[type=checkbox]{width:20px;height:20px;margin-top:1px}
@@ -356,7 +356,7 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialoghead"><h2>Composer le repas</h2><button class="soft" onclick="mealDialog.close()">✕</button></div>
  <form id="mealForm">
   <input id="mdate" type="hidden">
-  <label>Moment<select id="mslot"><option value="midi">Midi</option><option value="soir">Soir</option></select></label>
+  <label>Type de recette<select id="mslot"><option value="midi">Plat</option><option value="soir">Petit-déjeuner / Dessert</option></select></label>
   <label>Nombre de personnes<input id="mserv" type="number" min="1" value="2"></label>
   <label>Recettes</label>
   <div class="muted" style="margin-bottom:8px">Sélectionne une ou plusieurs recettes pour composer le même repas.</div>
@@ -371,7 +371,7 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialoghead"><h2>Planifier la recette</h2><button class="soft" onclick="quickPlanDialog.close()">✕</button></div>
  <input id="quickRecipeId" type="hidden">
  <label>Jour<input id="quickPlanDate" type="date"></label>
- <label>Moment<select id="quickPlanSlot"><option value="midi">Midi</option><option value="soir">Soir</option></select></label>
+ <label>Type de recette<select id="quickPlanSlot"><option value="midi">Plat</option><option value="soir">Petit-déjeuner / Dessert</option></select></label>
  <div id="quickVariantWrap"></div><div id="quickModularWrap"></div>
  <label>Nombre de personnes<input id="quickPlanServ" type="number" min="1" value="2"></label>
  <div class="dialogactions"><button type="button" class="soft" onclick="quickPlanDialog.close()">Annuler</button><button type="button" class="primary" onclick="saveQuickPlan()">Ajouter au planning</button></div>
@@ -646,7 +646,7 @@ function home(){
  head("Nout’ Kaz 🏡","Recettes, repas et courses de la maison");
  let today=dateKey(new Date()), p=data.planning[today]||{}, upcoming=[];
  weekDates(0).forEach(d=>{let q=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{if(q[slot]){let rs=mealRecipes(q[slot]);if(rs.length)upcoming.push({d,slot,rs,serv:q[slot].servings||rs[0].r.servings})}})});
- let tod=[["midi",p.midi],["soir",p.soir]].filter(x=>x[1]).map(([slot,m])=>{let rs=mealRecipes(m);return rs.length?`<div class="ingredient"><b>${slot==="midi"?"Midi":"Soir"}</b><div style="flex:1" class="mealstack">${rs.map(x=>`<button type="button" class="today-recipe-link" data-recipe-id="${x.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div></div>`:""}).join("");
+ let tod=[["midi",p.midi],["soir",p.soir]].filter(x=>x[1]).map(([slot,m])=>{let rs=mealRecipes(m);return rs.length?`<div class="ingredient"><b>${slot==="midi"?"Plat":"Petit-déjeuner / Dessert"}</b><div style="flex:1" class="mealstack">${rs.map(x=>`<button type="button" class="today-recipe-link" data-recipe-id="${x.r.id}" style="display:block;width:100%;border:0;background:transparent;padding:4px 0;text-align:left;font-weight:700;color:var(--text)">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}</div></div>`:""}).join("");
  view.innerHTML=`<div class="home-banner" aria-hidden="true"></div>
  <div class="card home-hero">
    <h2>Aujourd’hui</h2>${tod||'<div class="home-empty">Aucun repas prévu aujourd’hui.</div>'}
@@ -676,7 +676,7 @@ function recipeCategoryIcon(c){
  return x[c]||"🍴";
 }
 function recipeCategoryArt(c){
- const a={"Petit-déjeuner":"cat-petit-dejeuner.webp","Entrée":"cat-entree.webp","Plat":"cat-plat.webp","Dessert":"cat-dessert.webp","Féculents":"cat-feculents.webp","Protéines":"cat-proteines.webp","Légumes":"cat-legumes.webp","❤️ Favoris":"cat-favoris.webp","Toutes":"cat-toutes.webp"};
+ const a={"Petit-déjeuner":"cat-petit-dejeuner.webp","Entrée":"cat-entree.webp","Plat":"cat-plat.webp","Dessert":"cat-dessert.webp","Féculents":"cat-feculents.webp","Protéines":"cat-proteines.webp","Légumes":"cat-legumes.webp","Sauces":"cat-sauces.webp","❤️ Favoris":"cat-favoris.webp","Toutes":"cat-toutes.webp"};
  return a[c]||"";
 }
 function categoryTileInner(c){
@@ -920,7 +920,7 @@ window.saveQuickPlan=()=>{
 };
 function planning(){
  head("Planning","Choisis une catégorie puis une recette à planifier");
- let cells=`<div class="head"></div><div class="head">Midi</div><div class="head">Soir</div>`;
+ let cells=`<div class="head"></div><div class="head">Plat</div><div class="head">Petit-déjeuner / Dessert</div>`;
  weekDates(weekOffset).forEach((d,i)=>{let k=dateKey(d),p=data.planning[k]||{};
    cells+=`<div class="day"><b>${DAYS[i]}</b><br>${d.getDate()}</div>${["midi","soir"].map(slot=>{
     let m=p[slot],rs=mealRecipes(m);return `<div class="meal" onclick="openMeal('${k}','${slot}')">${rs.length?`<div class="mealstack">${rs.map(x=>`<button type="button" class="mealchip planning-recipe-link" onclick="event.stopPropagation();showPlannedDetail('${x.r.id}','${encodeURIComponent(JSON.stringify(x.item.selections||{}))}','${x.item.variantId||""}')" style="border:0;cursor:pointer;text-align:left">${escapeHtml(x.r.name)} <span aria-hidden="true">›</span></button>`).join("")}<div class="muted">${m.servings||rs[0].r.servings} pers. · toucher autour pour modifier le repas</div></div>`:"＋ Ajouter"}</div>`}).join("")}`;

@@ -1,0 +1,4 @@
+Nout Kaz V5.2.0 - Integration illustration Sauces validee.
+Base: V5.1.3. Les autres fonctionnalites de cette base sont conservees sans changement.
+Avant publication: exporter une sauvegarde JSON.
+Apres publication: actualiser l application et verifier recettes, planning, courses et synchronisation sur les deux appareils.
