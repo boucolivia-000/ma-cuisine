@@ -1,0 +1,7 @@
+Nout’ Kaz V5.1.1 — catégories unifiées
+
+Toutes les catégories prédéfinies sont normalisées (singulier/pluriel, accents, majuscules, espaces).
+Les catégories personnalisées inconnues conservent leur nom original.
+Recettes modulables de V5.1.0 conservées.
+
+Sauvegarder les données JSON avant de mettre à jour GitHub Pages.

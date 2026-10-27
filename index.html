@@ -544,7 +544,25 @@ function dateKey(d){let x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneO
 function monday(offset=0){let d=new Date(),n=(d.getDay()+6)%7;d.setDate(d.getDate()-n+offset*7);d.setHours(12,0,0,0);return d}
 function weekDates(offset=0){let m=monday(offset);return Array.from({length:7},(_,i)=>{let d=new Date(m);d.setDate(m.getDate()+i);return d})}
 function weekLabel(offset=0){let ds=weekDates(offset);return `${ds[0].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} – ${ds[6].toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}`}
-function canonicalCategory(raw){const c=String(raw||"Autre").trim();const n=c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");const map={"proteine":"Protéines","proteines":"Protéines","legume":"Légumes","legumes":"Légumes","feculent":"Féculents","feculents":"Féculents","sauce":"Sauces","sauces":"Sauces","plats":"Plat","desserts":"Dessert","entrees":"Entrée"};return map[n]||c}
+function canonicalCategory(raw){
+ const c=String(raw??"Autre").trim().replace(/\s+/g," ");
+ if(!c)return "Autre";
+ const n=c.toLocaleLowerCase("fr").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[’']/g,"'").replace(/[‐‑–—]/g,"-").replace(/\s*[-]\s*/g,"-");
+ const aliases={
+  "plat":"Plat","plats":"Plat",
+  "proteine":"Protéines","proteines":"Protéines",
+  "legume":"Légumes","legumes":"Légumes",
+  "feculent":"Féculents","feculents":"Féculents",
+  "sauce":"Sauces","sauces":"Sauces",
+  "entree":"Entrée","entrees":"Entrée",
+  "dessert":"Dessert","desserts":"Dessert",
+  "petit-dejeuner":"Petit-déjeuner","petits-dejeuners":"Petit-déjeuner","petit dejeuner":"Petit-déjeuner","petits dejeuners":"Petit-déjeuner",
+  "gouter":"Goûter","gouters":"Goûter",
+  "boisson":"Boisson","boissons":"Boisson",
+  "autre":"Autre","autres":"Autre"
+ };
+ return aliases[n]||c;
+}
 function getRecipe(id){return data.recipes.find(r=>r.id===id)}
 function getVariant(r,variantId){return (r?.variants||[]).find(v=>v.id===variantId)}
 function effectiveRecipe(r,variantId=""){
