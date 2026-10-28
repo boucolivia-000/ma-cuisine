@@ -285,7 +285,7 @@ header h1,.topbar h1{color:#355238!important}
 
 .modular-choices{display:grid;gap:12px;margin:12px 0}.modular-choice{background:#fff8ee;border:1px solid #e6d6c6;border-radius:19px;padding:12px}.modular-choice label{display:block;margin:0 0 5px;color:#3f6046;font-weight:700}.modular-choice select{width:100%;max-width:100%;background:#fffdf8;color:#453c33;border-radius:13px;padding:11px}.modular-section{margin-top:14px;padding:12px;border-radius:17px;background:#fff7ee}.modular-section h3{color:#3f6046;margin:0 0 7px}.modular-warning{background:#fff0dd;border-radius:12px;padding:10px;margin:9px 0;color:#674a32}
 
-/* V5.3.0 */
+/* V5.3.1 */
 #mealDialog .dialogbody{max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
 #mealStickyControls{position:sticky;top:0;z-index:18;background:#fffaf5;border-radius:15px;padding:8px 10px;box-shadow:0 3px 12px #574c3920;margin-bottom:8px}
 #mealStickyControls .mealstickyrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -469,11 +469,29 @@ function markShoppingChanged(){
  save(true);
 }
 function acceptShopping(remote){
+ // Legacy single-list merge is only valid for old data without collections.
+ // With collections, the per-list snapshots are authoritative.
+ if(Array.isArray(remote?.shoppingCollections)&&remote.shoppingCollections.length){
+  const remoteLists=remote.shoppingCollections;
+  if(!Array.isArray(data.shoppingCollections)||!data.shoppingCollections.length){
+   data.shoppingCollections=remoteLists;
+   data.activeShoppingCollection=remote.activeShoppingCollection||remoteLists[0].id;
+  }else{
+   for(const rl of remoteLists){
+    const ix=data.shoppingCollections.findIndex(l=>l.id===rl.id);
+    if(ix<0)data.shoppingCollections.push(rl);
+    else if(String(rl.snapshot?.revision||"")>String(data.shoppingCollections[ix].snapshot?.revision||""))data.shoppingCollections[ix].snapshot=rl.snapshot;
+   }
+  }
+  const active=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection)||data.shoppingCollections[0];
+  data.activeShoppingCollection=active.id;
+  data.shoppingList=active.snapshot;
+  return;
+ }
  const theirs=remote?.shoppingList,ours=data.shoppingList;
- if(!theirs || !Array.isArray(theirs.items))return;
- const backup=JSON.parse(localStorage.getItem(SHOP_LOCAL_BACKUP)||'null');
- const latest=[theirs,ours,backup].filter(x=>x&&Array.isArray(x.items)).sort((a,b)=>String(b.revision||'').localeCompare(String(a.revision||'')))[0];
- if(latest){data.shoppingList=latest;const l=data.shoppingCollections?.find(x=>x.id===data.activeShoppingCollection);if(l)l.snapshot=latest;localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(latest));}
+ if(!theirs||!Array.isArray(theirs.items))return;
+ const latest=[theirs,ours].filter(x=>x&&Array.isArray(x.items)).sort((a,b)=>String(b.revision||"").localeCompare(String(a.revision||"")))[0];
+ if(latest)data.shoppingList=latest;
 }
 
 
@@ -485,7 +503,8 @@ function ensureShoppingCollections(){
  }
  if(!data.shoppingCollections.some(l=>l.id===data.activeShoppingCollection))data.activeShoppingCollection=data.shoppingCollections[0].id;
  const list=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection);
- if(data.shoppingList!==list.snapshot){list.snapshot=data.shoppingList&&Array.isArray(data.shoppingList.items)&&(!list.snapshot||String(data.shoppingList.revision||"")>String(list.snapshot.revision||""))?data.shoppingList:list.snapshot;data.shoppingList=list.snapshot;}
+ if(!list.snapshot||!Array.isArray(list.snapshot.items))list.snapshot={items:[],checked:{},revision:shoppingRev(),cleared:true};
+ data.shoppingList=list.snapshot;
  return list;
 }
 function selectShoppingCollection(id){
@@ -550,7 +569,7 @@ async function pushRemote(){
    setSyncStatus("☁ Synchronisation…");
    const {data:currentRow,error:readError}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
    if(readError)throw readError;
-   if(currentRow?.data){acceptShopping(currentRow.data);const remoteLists=currentRow.data.shoppingCollections;if(Array.isArray(remoteLists)&&remoteLists.length){const localLists=data.shoppingCollections||[];remoteLists.forEach(rl=>{const ix=localLists.findIndex(ll=>ll.id===rl.id);if(ix<0)localLists.push(rl);else if(String(rl.snapshot?.revision||"")>String(localLists[ix].snapshot?.revision||""))localLists[ix].snapshot=rl.snapshot});data.shoppingCollections=localLists;}}
+   if(currentRow?.data){const remoteLists=currentRow.data.shoppingCollections;if(Array.isArray(remoteLists)&&remoteLists.length){const localLists=data.shoppingCollections||[];remoteLists.forEach(rl=>{const ix=localLists.findIndex(ll=>ll.id===rl.id);if(ix<0)localLists.push(rl);else if(String(rl.snapshot?.revision||"")>String(localLists[ix].snapshot?.revision||""))localLists[ix].snapshot=rl.snapshot});data.shoppingCollections=localLists;const active=localLists.find(l=>l.id===data.activeShoppingCollection);if(active)data.shoppingList=active.snapshot;}}
    const payload={...data,_sync_updated_at:new Date().toISOString()};
    const {error}=await sb.from("nout_kaz_data")
      .update({data:payload,updated_at:new Date().toISOString()})
@@ -578,7 +597,7 @@ async function loadRemote(){
  const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
  if(remoteHasContent && Object.keys(remote).length>1){
    isApplyingRemote=true;
-   const previousShop=data.shoppingList;data={...seed,...remote}; if(previousShop)data.shoppingList=previousShop;acceptShopping(remote);
+   const previousShop=data.shoppingList;data={...seed,...remote}; if(previousShop&&!Array.isArray(remote.shoppingCollections))data.shoppingList=previousShop;acceptShopping(remote);
    if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
@@ -1258,7 +1277,7 @@ sb.channel("nout-kaz-shared")
    lastRemoteUpdatedAt=payload.new.updated_at||lastRemoteUpdatedAt;
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
-   const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop)data.shoppingList=previousShop;acceptShopping(incoming);
+   const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop&&!Array.isArray(incoming.shoppingCollections))data.shoppingList=previousShop;acceptShopping(incoming);
    if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
    localStorage.setItem(KEY,JSON.stringify(data));
    isApplyingRemote=false;
@@ -1282,7 +1301,7 @@ setInterval(async()=>{
    lastRemoteUpdatedAt=row.updated_at||null;
    const incoming=row.data||{};
    if(JSON.stringify(incoming)!==JSON.stringify(data)){
-     isApplyingRemote=true;const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop)data.shoppingList=previousShop;acceptShopping(incoming);
+     isApplyingRemote=true;const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop&&!Array.isArray(incoming.shoppingCollections))data.shoppingList=previousShop;acceptShopping(incoming);
      if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
      localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
    }

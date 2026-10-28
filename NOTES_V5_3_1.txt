@@ -1,0 +1,1 @@
+V5.3.1 : isolation des instantanes des listes de courses, correction du melange entre listes lors de la synchronisation. Export JSON recommande avant mise a jour.
