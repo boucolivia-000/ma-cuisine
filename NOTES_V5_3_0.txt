@@ -1,0 +1,1 @@
+Nout Kaz V5.3.0 : listes nommees independantes, selection individuelle de semaines (5), mode liste simplifiee, recherche et entete fixes dans la planification, boutons croix. Sauvegarder JSON avant installation. Test Supabase multi-appareils recommande.

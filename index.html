@@ -284,6 +284,24 @@ header h1,.topbar h1{color:#355238!important}
 @media(max-width:390px){.origins-wave{padding:50px 18px 35px}.origins-art{flex-basis:73px;font-size:40px}.origins-title h2{font-size:23px}.origins-recipe{font-size:15px;padding:12px}}
 
 .modular-choices{display:grid;gap:12px;margin:12px 0}.modular-choice{background:#fff8ee;border:1px solid #e6d6c6;border-radius:19px;padding:12px}.modular-choice label{display:block;margin:0 0 5px;color:#3f6046;font-weight:700}.modular-choice select{width:100%;max-width:100%;background:#fffdf8;color:#453c33;border-radius:13px;padding:11px}.modular-section{margin-top:14px;padding:12px;border-radius:17px;background:#fff7ee}.modular-section h3{color:#3f6046;margin:0 0 7px}.modular-warning{background:#fff0dd;border-radius:12px;padding:10px;margin:9px 0;color:#674a32}
+
+/* V5.3.0 */
+#mealDialog .dialogbody{max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
+#mealStickyControls{position:sticky;top:0;z-index:18;background:#fffaf5;border-radius:15px;padding:8px 10px;box-shadow:0 3px 12px #574c3920;margin-bottom:8px}
+#mealStickyControls .mealstickyrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#mealStickyControls label{margin:0;font-size:12px}
+#mealStickyControls input,#mealStickyControls select{padding:8px;min-height:36px;margin-top:3px}
+#mealSearch{width:100%;margin:0 0 7px;box-sizing:border-box}
+.nk-listbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.nk-listbar button{font-size:13px;padding:9px 12px;border-radius:20px}
+.nk-listbar button.active{background:#df8b80;color:white}
+.nk-week-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:8px 0}
+.nk-week-grid label{font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px;background:#f8eee8;border-radius:9px;padding:8px 1px}
+.nk-simple-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px;border-bottom:1px solid #e9dfd7}
+.nk-flower{border:0!important;background:#f49b91!important;color:white!important;border-radius:45% 55% 50% 45%!important;width:28px;height:28px;min-width:28px;padding:0!important;font-size:19px!important;line-height:26px!important;box-shadow:0 1px 4px #c76e6733;cursor:pointer}
+.nk-list-ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.nk-list-ctrl input{min-width:0;flex:1}
+.nk-flower{background:transparent url("bouton-fleur-supprimer.png") center / contain no-repeat!important;box-shadow:none!important;color:transparent!important;font-size:0!important;border:0!important;width:30px;height:30px;min-width:30px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -356,8 +374,7 @@ header h1,.topbar h1{color:#355238!important}
  <div class="dialoghead"><h2>Composer le repas</h2><button class="soft" onclick="mealDialog.close()">✕</button></div>
  <form id="mealForm">
   <input id="mdate" type="hidden">
-  <label>Type de recette<select id="mslot"><option value="midi">Plat</option><option value="soir">Petit-déjeuner / Dessert</option></select></label>
-  <label>Nombre de personnes<input id="mserv" type="number" min="1" value="2"></label>
+  <div id="mealStickyControls"><input id="mealSearch" type="search" placeholder="🔎 Rechercher une recette…" aria-label="Rechercher une recette"><div class="mealstickyrow"><label>Type de recette<select id="mslot"><option value="midi">Plat</option><option value="soir">Petit-déjeuner / Dessert</option></select></label><label>Personnes<input id="mserv" type="number" min="1" value="2"></label></div></div>
   <label>Recettes</label>
   <div class="muted" style="margin-bottom:8px">Sélectionne une ou plusieurs recettes pour composer le même repas.</div>
   <div id="mealCategoryFilters" class="category-grid"></div>
@@ -456,7 +473,49 @@ function acceptShopping(remote){
  if(!theirs || !Array.isArray(theirs.items))return;
  const backup=JSON.parse(localStorage.getItem(SHOP_LOCAL_BACKUP)||'null');
  const latest=[theirs,ours,backup].filter(x=>x&&Array.isArray(x.items)).sort((a,b)=>String(b.revision||'').localeCompare(String(a.revision||'')))[0];
- if(latest){data.shoppingList=latest;localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(latest));}
+ if(latest){data.shoppingList=latest;const l=data.shoppingCollections?.find(x=>x.id===data.activeShoppingCollection);if(l)l.snapshot=latest;localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(latest));}
+}
+
+
+// V5.3: independently named shopping lists, each with a saved snapshot and week selection.
+function ensureShoppingCollections(){
+ if(!Array.isArray(data.shoppingCollections)||!data.shoppingCollections.length){
+  const old=data.shoppingList&&Array.isArray(data.shoppingList.items)?data.shoppingList:{items:[],checked:{},revision:shoppingRev()};
+  data.shoppingCollections=[{id:"main",name:"Courses principales",mode:"recipes",weeks:[0],snapshot:old}];data.activeShoppingCollection="main";
+ }
+ if(!data.shoppingCollections.some(l=>l.id===data.activeShoppingCollection))data.activeShoppingCollection=data.shoppingCollections[0].id;
+ const list=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection);
+ if(data.shoppingList!==list.snapshot){list.snapshot=data.shoppingList&&Array.isArray(data.shoppingList.items)&&(!list.snapshot||String(data.shoppingList.revision||"")>String(list.snapshot.revision||""))?data.shoppingList:list.snapshot;data.shoppingList=list.snapshot;}
+ return list;
+}
+function selectShoppingCollection(id){
+ const old=data.shoppingCollections?.find(l=>l.id===data.activeShoppingCollection);if(old)old.snapshot=data.shoppingList;
+ const next=data.shoppingCollections?.find(l=>l.id===id);if(!next)return;
+ data.activeShoppingCollection=id;data.shoppingList=next.snapshot;save(true);drawShop();
+}
+window.selectShoppingCollection=selectShoppingCollection;
+window.createShoppingCollection=()=>{
+ const name=document.getElementById("nkNewListName")?.value.trim();if(!name)return;
+ const mode=document.getElementById("nkNewListMode")?.value||"recipes";
+ const weeks=[...document.querySelectorAll(".nk-week-choice:checked")].map(x=>+x.value);
+ if(mode==="recipes"&&!weeks.length){alert("Choisis au moins une semaine.");return}
+ const id=uid("list");const snapshot={items:[],checked:{},revision:shoppingRev(),cleared:true};
+ data.shoppingCollections.push({id,name,mode,weeks,snapshot});
+ data.activeShoppingCollection=id;data.shoppingList=snapshot;save(true);drawShop();
+};
+window.renameShoppingCollection=()=>{const l=ensureShoppingCollections();const name=document.getElementById("nkRenameList")?.value.trim();if(name){l.name=name;save(true);drawShop()}};
+window.setShoppingCollectionWeeks=()=>{const l=ensureShoppingCollections();l.weeks=[...document.querySelectorAll(".nk-active-week:checked")].map(x=>+x.value);save(true);drawShop()};
+window.removeShoppingCollection=()=>{if(data.shoppingCollections.length<=1){alert("Conserve au moins une liste.");return}if(!confirm("Supprimer cette liste et ses articles ?"))return;data.shoppingCollections=data.shoppingCollections.filter(x=>x.id!==data.activeShoppingCollection);data.activeShoppingCollection=data.shoppingCollections[0].id;data.shoppingList=data.shoppingCollections[0].snapshot;save(true);drawShop()};
+window.addSimpleArticles=()=>{const el=document.getElementById("nkSimpleInput"),l=ensureShoppingCollections();if(!el)return;const names=el.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);names.forEach(name=>l.snapshot.items.push({key:"manual|"+uid("simple"),name,manual:true,section:"",qty:0,unit:""}));el.value="";markShoppingChanged();drawShop()};
+window.removeSimpleArticle=k=>{removeShopItem(k)};
+function shoppingCollectionsHeader(){
+ const active=ensureShoppingCollections();const isSimple=active.mode==="simple";
+ return `<div class="card"><h3>Mes listes de courses</h3><div class="nk-listbar">${data.shoppingCollections.map(l=>`<button type="button" class="${l.id===active.id?"active":"outline"}" onclick="selectShoppingCollection('${escapeHtml(l.id)}')">${escapeHtml(l.name)}</button>`).join("")}</div>
+ <details><summary>＋ Créer une liste</summary><div class="nk-list-ctrl"><input id="nkNewListName" placeholder="Nom de la liste"><select id="nkNewListMode" onchange="document.getElementById('nkNewWeeks').hidden=this.value==='simple'"><option value="recipes">Liste avec recettes</option><option value="simple">Liste simplifiée</option></select></div><div id="nkNewWeeks" class="nk-week-grid">${[0,1,2,3,4].map(w=>`<label><input class="nk-week-choice" type="checkbox" value="${w}" ${w===0?"checked":""}>S${w+1}</label>`).join("")}</div><button class="primary" type="button" onclick="createShoppingCollection()">Créer</button></details>
+ <details><summary>✎ Modifier la liste active</summary><div class="nk-list-ctrl"><input id="nkRenameList" value="${escapeHtml(active.name)}"><button class="outline" onclick="renameShoppingCollection()">Renommer</button><button class="nk-flower" title="Supprimer la liste" onclick="removeShoppingCollection()">×</button></div>${!isSimple?`<div class="muted">Semaines sélectionnées (sur 5)</div><div class="nk-week-grid">${[0,1,2,3,4].map(w=>`<label><input class="nk-active-week" type="checkbox" value="${w}" ${active.weeks.includes(w)?"checked":""} onchange="setShoppingCollectionWeeks()">S${w+1}</label>`).join("")}</div>`:""}</details></div>`;
+}
+function drawSimpleShopping(){const l=ensureShoppingCollections(),shop=l.snapshot;
+ return `<div class="card"><h3>Liste simplifiée : ${escapeHtml(l.name)}</h3><p class="muted">Un article par ligne, sans quantité ni catégorie.</p><textarea id="nkSimpleInput" rows="6" placeholder="Tomates\nPain\nŒufs"></textarea><button class="primary" onclick="addSimpleArticles()">Enregistrer les articles</button></div><div class="card"><h3>Articles (${shop.items.length})</h3>${shop.items.map(i=>`<div class="nk-simple-row"><span>${escapeHtml(i.name)}</span><button class="nk-flower" aria-label="Retirer ${escapeHtml(i.name)}" onclick="removeSimpleArticle('${encodeURIComponent(i.key)}')">×</button></div>`).join("")||'<div class="muted">Liste vide.</div>'}<div class="nk-list-ctrl"><button class="outline" onclick="syncCoursesNow()">Enregistrer et synchroniser</button><button class="outline" onclick="openClearShopping()">Vider la liste</button></div></div>`;
 }
 
 let localShopChecked=JSON.parse(localStorage.getItem(SHOP_CHECKED_KEY)||"{}");
@@ -477,6 +536,7 @@ function setSyncStatus(text,offline=false){
  el.textContent=text; el.classList.toggle("offline",offline);
 }
 async function save(norender=false){
+ if(Array.isArray(data.shoppingCollections)){const active=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection);if(active)active.snapshot=data.shoppingList}
  localStorage.setItem(KEY,JSON.stringify(data));
  if(!norender)render();
  if(currentUser && householdUuid && !isApplyingRemote){
@@ -490,7 +550,7 @@ async function pushRemote(){
    setSyncStatus("☁ Synchronisation…");
    const {data:currentRow,error:readError}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
    if(readError)throw readError;
-   if(currentRow?.data)acceptShopping(currentRow.data);
+   if(currentRow?.data){acceptShopping(currentRow.data);const remoteLists=currentRow.data.shoppingCollections;if(Array.isArray(remoteLists)&&remoteLists.length){const localLists=data.shoppingCollections||[];remoteLists.forEach(rl=>{const ix=localLists.findIndex(ll=>ll.id===rl.id);if(ix<0)localLists.push(rl);else if(String(rl.snapshot?.revision||"")>String(localLists[ix].snapshot?.revision||""))localLists[ix].snapshot=rl.snapshot});data.shoppingCollections=localLists;}}
    const payload={...data,_sync_updated_at:new Date().toISOString()};
    const {error}=await sb.from("nout_kaz_data")
      .update({data:payload,updated_at:new Date().toISOString()})
@@ -960,10 +1020,10 @@ window.openMeal=(k,slot)=>{
  $("#mealLetterFilters").innerHTML=`<button type="button" class="${activeLetter===""?"active":""}" data-letter="">Toutes</button>${letters.map(l=>`<button type="button" class="${activeLetter===l?"active":""}" data-letter="${l}">${l}</button>`).join("")}`;
  $("#mealLetterFilters").querySelectorAll("[data-letter]").forEach(btn=>btn.onclick=()=>{capture();activeLetter=btn.dataset.letter;drawLetters();drawMealRecipes()})};
  const drawMealRecipes=()=>{let recipes=filteredBase().filter(r=>!activeLetter||normalize(r.name).charAt(0).toUpperCase()===activeLetter);
- $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${recipes.map(r=>{let vars=r.variants||[],cur=selected.get(r.id)||"";return `<label class="mealchoice"><input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}><span class="mini">${imgHTML(r)}</span><span style="flex:1"><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span>${modularGroups(r).length?`<div data-modular-for="${r.id}">${modularSelectorsHTML(r,window.mealModular.get(r.id)||defaultSelections(r),"meal-"+r.id)}</div>`:""}${vars.length?`<select class="meal-variant" data-variant-for="${r.id}" onclick="event.stopPropagation()"><option value="">Nature</option>${vars.map(v=>`<option value="${v.id}" ${cur===v.id?"selected":""}>${escapeHtml(v.name)}</option>`).join("")}</select>`:""}</span></label>`}).join("")}</div>`};
+ $("#mealRecipeChoices").innerHTML=`<div class="mealchoices">${recipes.map(r=>{let vars=r.variants||[],cur=selected.get(r.id)||"";return `<label class="mealchoice"><input type="checkbox" value="${r.id}" ${selected.has(r.id)?"checked":""}><span class="mini">${imgHTML(r)}</span><span style="flex:1"><b>${escapeHtml(r.name)}</b><br><span class="muted">${escapeHtml(r.category)} · ${r.servings} pers.</span>${modularGroups(r).length?`<div data-modular-for="${r.id}">${modularSelectorsHTML(r,window.mealModular.get(r.id)||defaultSelections(r),"meal-"+r.id)}</div>`:""}${vars.length?`<select class="meal-variant" data-variant-for="${r.id}" onclick="event.stopPropagation()"><option value="">Nature</option>${vars.map(v=>`<option value="${v.id}" ${cur===v.id?"selected":""}>${escapeHtml(v.name)}</option>`).join("")}</select>`:""}</span></label>`}).join("")}</div>`;const search=document.getElementById("mealSearch");if(search&&search.value)search.dispatchEvent(new Event("input"))};
  $("#mealCategoryFilters").innerHTML=mealCategories.map(c=>`<button type="button" class="category-tile ${c==="Toutes"?"active":""}" data-meal-cat="${escapeHtml(c)}">${categoryTileInner(c)}</button>`).join("");
  $("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(btn=>btn.onclick=()=>{capture();activeMealCategory=btn.dataset.mealCat;activeLetter="";$("#mealCategoryFilters").querySelectorAll("[data-meal-cat]").forEach(b=>b.classList.toggle("active",b===btn));drawLetters();drawMealRecipes()});
- drawLetters();drawMealRecipes();$("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
+ drawLetters();drawMealRecipes();$("#mealSearch").value="";$("#mealSearch").oninput=e=>{const q=normalize(e.target.value);document.querySelectorAll("#mealRecipeChoices .mealchoice").forEach(el=>{const b=el.querySelector("b");el.style.display=!q||normalize(b?.textContent||"").includes(q)?"":"none"})};$("#removeMeal").style.visibility=existing?"visible":"hidden";mealDialog.showModal();
 };
 window.saveMealSelection=()=>{
  let k=$("#mdate").value,slot=$("#mslot").value;
@@ -1048,7 +1108,7 @@ function drawShop(){
  if(shoppingTab==="stock"){
    c.innerHTML=`<div class="card"><div class="notice">Les ingrédients cochés comme « déjà à la maison » seront exclus de la liste générée.</div>
    <form id="pantryForm" style="margin-top:12px"><div class="searchbar"><input id="pantryName" placeholder="Ex. huile d'olive" required><button class="primary">Ajouter</button></div></form>
-   ${data.pantry.map((p,i)=>`<div class="pantryrow"><span style="flex:1">${escapeHtml(p.name)}</span><button class="iconbtn" onclick="removePantry(${i})">🗑</button></div>`).join("")||'<div class="empty">Ton stock est vide.</div>'}</div>`;
+   ${data.pantry.map((p,i)=>`<div class="pantryrow"><span style="flex:1">${escapeHtml(p.name)}</span><button class="iconbtn" onclick="removePantry(${i})">×</button></div>`).join("")||'<div class="empty">Ton stock est vide.</div>'}</div>`;
    $("#pantryForm").onsubmit=e=>{e.preventDefault();let n=$("#pantryName").value.trim();if(n&&!data.pantry.some(p=>shoppingNameKey(p.name)===shoppingNameKey(n)))data.pantry.push({name:n});save(true);drawShop()};
    return;
  }
@@ -1057,18 +1117,20 @@ function drawShop(){
    <div class="card"><h3>Sauvegarde manuelle</h3><p class="muted">En attendant la synchronisation, tu peux sauvegarder tes données dans un fichier puis les restaurer sur un autre appareil.</p><div class="actions2"><button class="outline" onclick="exportData()">Exporter</button><label class="primary" style="margin:0;text-align:center;cursor:pointer">Importer<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label></div></div>`;
    return;
  }
+ const activeCollection=ensureShoppingCollections();
+ if(activeCollection.mode==="simple"){c.innerHTML=shoppingCollectionsHeader()+drawSimpleShopping();return}
  let startWeek=Math.min(4,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,5-startWeek);
  const shop=shoppingSnapshot();if(!shop.checked)shop.checked={};let visible=shop.items;
  let active=visible.filter(i=>!shop.checked?.[i.key]), bought=visible.filter(i=>!!shop.checked?.[i.key]);
  let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
- c.innerHTML=`<div class="card"><div class="actions2"><button type="button" class="outline" onclick="syncCoursesNow()">💾 Enregistrer et synchroniser</button><button type="button" class="outline" onclick="openClearShopping()">🗑 Vider la liste</button></div><div class="muted">Liste enregistrée et partagée · Le planning reste indépendant.</div>
+ c.innerHTML=shoppingCollectionsHeader()+`<div class="card"><div class="actions2"><button type="button" class="outline" onclick="syncCoursesNow()">💾 Enregistrer et synchroniser</button><button type="button" class="outline" onclick="openClearShopping()">Vider la liste</button></div><div class="muted">Liste enregistrée et partagée · Le planning reste indépendant.</div>
   <label>Semaine de départ<select id="shopStartWeek"></select></label>
   <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
  <div class="card essentials-launch"><button type="button" class="outline essentials-launch-button" onclick="openEssentials()">🧺 Mes indispensables <span>Choisir les produits récurrents</span></button></div>
  <div class="searchbar"><input id="shopSearchInput" placeholder="Rechercher un article…" value="${escapeHtml(window.shopSearch||"")}"></div>
- ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span><button type="button" class="iconbtn" title="Retirer de la liste" onclick="event.stopPropagation();removeShopItem('${encodeURIComponent(i.key)}')">🗑</button></div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
+ ${Object.keys(groups).length?Object.entries(groups).map(([sec,arr])=>`<div class="card group"><h3>${escapeHtml(sec)} <span class="badge">${arr.length}</span></h3>${arr.map(i=>`<div class="shoprow" data-shop-key="${encodeURIComponent(i.key)}" onclick="takeShopItem(event,'${encodeURIComponent(i.key)}',this)">${i.origins?.length?`<button class="shop-origin" type="button" onclick="event.stopPropagation();showShopOrigins('${encodeURIComponent(i.key)}')" title="Voir les recettes"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13a4 4 0 0 1-1-7.8 5 5 0 0 1 9-1 4.5 4.5 0 0 1 5 8.8"/><path d="M6 12v8h12v-8M6 17h12"/></svg></button>`:""}<span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span><button type="button" class="nk-flower" title="Retirer de la liste" onclick="event.stopPropagation();removeShopItem('${encodeURIComponent(i.key)}')">×</button></div>`).join("")}</div>`).join(""):'<div class="card empty">Tout est pris 🎉</div>'}
  ${bought.length?`<details class="card bought-box"><summary>Produits déjà pris (${bought.length})</summary>${bought.map(i=>`<div class="shoprow done" onclick="restoreShopItem('${encodeURIComponent(i.key)}')"><span class="shop-ingredient-art" aria-hidden="true">${ingredientSymbol(i.name)}</span><span class="shop-main">${i.displayQty?escapeHtml(i.displayQty):`${fmtNum(i.qty)} ${escapeHtml(i.unit||"")}`} ${escapeHtml(i.name)}</span></div>`).join("")}</details>`:""}
  <div class="card"><h3>Ajouter autre chose</h3><div class="chips">
  <button class="chipfilter" onclick="quickManual('Hygiène')">🧴 Hygiène</button>
@@ -1127,7 +1189,7 @@ let essentialSelection=new Set();
 window.openEssentials=()=>{if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();essentialSelection.clear();resetEssentialForm();document.getElementById('essentialsSearch').value='';renderEssentials();essentialsDialog.showModal()};
 window.renderEssentials=()=>{
  const q=normalize(document.getElementById('essentialsSearch')?.value||'');
- document.getElementById('essentialsList').innerHTML=(data.essentials||[]).filter(x=>normalize(x.name).includes(q)).map(x=>`<div class="essential-row"><label class="essential-check"><input type="checkbox" data-essential-check="${escapeHtml(x.id)}" ${essentialSelection.has(x.id)?'checked':''}><span><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.qty)} ${escapeHtml(x.unit)} · ${escapeHtml(x.section)}</small></span></label><button type="button" class="soft" data-essential-edit="${escapeHtml(x.id)}" aria-label="Modifier ${escapeHtml(x.name)}">✎</button><button type="button" class="soft" data-essential-delete="${escapeHtml(x.id)}" aria-label="Supprimer ${escapeHtml(x.name)}">🗑</button></div>`).join('')||'<p class="muted">Aucun produit trouvé.</p>';
+ document.getElementById('essentialsList').innerHTML=(data.essentials||[]).filter(x=>normalize(x.name).includes(q)).map(x=>`<div class="essential-row"><label class="essential-check"><input type="checkbox" data-essential-check="${escapeHtml(x.id)}" ${essentialSelection.has(x.id)?'checked':''}><span><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.qty)} ${escapeHtml(x.unit)} · ${escapeHtml(x.section)}</small></span></label><button type="button" class="soft" data-essential-edit="${escapeHtml(x.id)}" aria-label="Modifier ${escapeHtml(x.name)}">✎</button><button type="button" class="soft" data-essential-delete="${escapeHtml(x.id)}" aria-label="Supprimer ${escapeHtml(x.name)}">×</button></div>`).join('')||'<p class="muted">Aucun produit trouvé.</p>';
  document.querySelectorAll('[data-essential-check]').forEach(el=>el.onchange=()=>{if(el.checked)essentialSelection.add(el.dataset.essentialCheck);else essentialSelection.delete(el.dataset.essentialCheck)});
  document.querySelectorAll('[data-essential-edit]').forEach(el=>el.onclick=()=>editEssential(el.dataset.essentialEdit));
  document.querySelectorAll('[data-essential-delete]').forEach(el=>el.onclick=()=>deleteEssential(el.dataset.essentialDelete));
@@ -1155,7 +1217,8 @@ window.syncCoursesNow=async()=>{
  await pushRemote();drawShop();
 };
 window.generateShopping=()=>{
- const shop=shoppingSnapshot(),planned=plannedIngredients(Math.min(data.shoppingWeeks||1,5-(data.shoppingStartWeek||0)),data.shoppingStartWeek||0);
+ const active=ensureShoppingCollections(),shop=shoppingSnapshot(),planned={};
+ (active.weeks||[]).forEach(w=>{Object.entries(plannedIngredients(1,w)).forEach(([k,v])=>{if(!planned[k])planned[k]=v;else{planned[k].displayQty=[planned[k].displayQty,v.displayQty].filter(Boolean).join(" + ");planned[k].origins=[...new Set([...(planned[k].origins||[]),...(v.origins||[])])];planned[k].originRefs=[...(planned[k].originRefs||[]),...(v.originRefs||[])]}})});
  // Regeneration is explicit. Keep manually added articles, avoiding duplicates.
  const manual=shop.items.filter(i=>i.manual);
  const items=Object.values(planned).filter(i=>!pantryHas(i));
