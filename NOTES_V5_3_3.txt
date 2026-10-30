@@ -1,0 +1,1 @@
+V5.3.3 : listes de courses sauvegardées localement à chaque modification ; listes exclues des échanges Supabase ; suppression des articles persistante ; recettes et planning restent synchronisés. Sauvegarder les données JSON avant mise à jour.

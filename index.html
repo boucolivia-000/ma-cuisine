@@ -454,6 +454,47 @@ if(!data.pantry)data.pantry=[]; if(!data.history)data.history=[]; if(!data.manua
 const SHOP_CHECKED_KEY="nout-kaz-shopping-checked-v1";
 // V5: explicit shared shopping snapshot. It never regenerates on a normal render.
 const SHOP_LOCAL_BACKUP="nout-kaz-shopping-snapshot-v5";
+// V5.3.3: les listes de courses sont exclusivement locales sur cet appareil.
+const SHOP_COLLECTIONS_LOCAL_KEY="nout-kaz-shopping-collections-local-v533";
+function saveShoppingLocal(){
+ if(Array.isArray(data.shoppingCollections)){
+  const active=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection);
+  if(active)active.snapshot=data.shoppingList;
+ }
+ const payload={collections:data.shoppingCollections||[],activeId:data.activeShoppingCollection||"main",audit:data.shoppingAudit||null,generatedAt:data.shoppingGeneratedAt||null};
+ localStorage.setItem(SHOP_COLLECTIONS_LOCAL_KEY,JSON.stringify(payload));
+}
+function restoreShoppingLocal(){
+ try{
+  const raw=localStorage.getItem(SHOP_COLLECTIONS_LOCAL_KEY);
+  if(raw){const local=JSON.parse(raw);
+   if(Array.isArray(local.collections)&&local.collections.length){
+    data.shoppingCollections=local.collections;
+    data.activeShoppingCollection=local.activeId;
+    data.shoppingAudit=local.audit;data.shoppingGeneratedAt=local.generatedAt;
+   }
+  }
+  ensureShoppingCollections();
+  saveShoppingLocal();
+ }catch(e){console.error("Restauration des courses locales",e);ensureShoppingCollections()}
+}
+function withoutCloudShopping(value){
+ const copy={...value};
+ delete copy.shoppingList;delete copy.shoppingCollections;delete copy.activeShoppingCollection;
+ delete copy.shoppingAudit;delete copy.shoppingGeneratedAt;
+ delete copy.shoppingWeeks;delete copy.shoppingStartWeek;
+ delete copy.manual;delete copy.checked;
+ return copy;
+}
+function applyRemoteKeepingLocal(remote){
+ const preserved={shoppingList:data.shoppingList,shoppingCollections:data.shoppingCollections,activeShoppingCollection:data.activeShoppingCollection,shoppingAudit:data.shoppingAudit,shoppingGeneratedAt:data.shoppingGeneratedAt};
+ data={...seed,...remote,...preserved};
+ restoreShoppingLocal();
+ if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
+ if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+
 function shoppingRev(){return new Date().toISOString()+"-"+Math.random().toString(36).slice(2,8)}
 function shoppingSnapshot(){
  if(data.shoppingList && Array.isArray(data.shoppingList.items))return data.shoppingList;
@@ -466,7 +507,8 @@ function shoppingSnapshot(){
 function markShoppingChanged(){
  const shop=shoppingSnapshot();shop.revision=shoppingRev();
  localStorage.setItem(SHOP_LOCAL_BACKUP,JSON.stringify(shop));
- save(true);
+ saveShoppingLocal();
+ save(true,true);
 }
 function acceptShopping(remote){
  // Legacy single-list merge is only valid for old data without collections.
@@ -510,7 +552,7 @@ function ensureShoppingCollections(){
 function selectShoppingCollection(id){
  const old=data.shoppingCollections?.find(l=>l.id===data.activeShoppingCollection);if(old)old.snapshot=data.shoppingList;
  const next=data.shoppingCollections?.find(l=>l.id===id);if(!next)return;
- data.activeShoppingCollection=id;data.shoppingList=next.snapshot;save(true);drawShop();
+ data.activeShoppingCollection=id;data.shoppingList=next.snapshot;save(true,true);drawShop();
 }
 window.selectShoppingCollection=selectShoppingCollection;
 window.createShoppingCollection=()=>{
@@ -520,11 +562,11 @@ window.createShoppingCollection=()=>{
  if(mode==="recipes"&&!weeks.length){alert("Choisis au moins une semaine.");return}
  const id=uid("list");const snapshot={items:[],checked:{},revision:shoppingRev(),cleared:true};
  data.shoppingCollections.push({id,name,mode,weeks,snapshot});
- data.activeShoppingCollection=id;data.shoppingList=snapshot;save(true);drawShop();
+ data.activeShoppingCollection=id;data.shoppingList=snapshot;save(true,true);drawShop();
 };
-window.renameShoppingCollection=()=>{const l=ensureShoppingCollections();const name=document.getElementById("nkRenameList")?.value.trim();if(name){l.name=name;save(true);drawShop()}};
-window.setShoppingCollectionWeeks=()=>{const l=ensureShoppingCollections();l.weeks=[...document.querySelectorAll(".nk-active-week:checked")].map(x=>+x.value);save(true);drawShop()};
-window.removeShoppingCollection=()=>{if(data.shoppingCollections.length<=1){alert("Conserve au moins une liste.");return}if(!confirm("Supprimer cette liste et ses articles ?"))return;data.shoppingCollections=data.shoppingCollections.filter(x=>x.id!==data.activeShoppingCollection);data.activeShoppingCollection=data.shoppingCollections[0].id;data.shoppingList=data.shoppingCollections[0].snapshot;save(true);drawShop()};
+window.renameShoppingCollection=()=>{const l=ensureShoppingCollections();const name=document.getElementById("nkRenameList")?.value.trim();if(name){l.name=name;save(true,true);drawShop()}};
+window.setShoppingCollectionWeeks=()=>{const l=ensureShoppingCollections();l.weeks=[...document.querySelectorAll(".nk-active-week:checked")].map(x=>+x.value);save(true,true);drawShop()};
+window.removeShoppingCollection=()=>{if(data.shoppingCollections.length<=1){alert("Conserve au moins une liste.");return}if(!confirm("Supprimer cette liste et ses articles ?"))return;data.shoppingCollections=data.shoppingCollections.filter(x=>x.id!==data.activeShoppingCollection);data.activeShoppingCollection=data.shoppingCollections[0].id;data.shoppingList=data.shoppingCollections[0].snapshot;save(true,true);drawShop()};
 window.addSimpleArticles=()=>{const el=document.getElementById("nkSimpleInput"),l=ensureShoppingCollections();if(!el)return;const names=el.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);names.forEach(name=>l.snapshot.items.push({key:"manual|"+uid("simple"),name,manual:true,section:"",qty:0,unit:""}));el.value="";markShoppingChanged();drawShop()};
 window.removeSimpleArticle=k=>{removeShopItem(k)};
 function shoppingCollectionsHeader(){
@@ -534,14 +576,14 @@ function shoppingCollectionsHeader(){
  <details><summary>✎ Modifier la liste active</summary><div class="nk-list-ctrl"><input id="nkRenameList" value="${escapeHtml(active.name)}"><button class="outline" onclick="renameShoppingCollection()">Renommer</button><button class="nk-flower" title="Supprimer la liste" onclick="removeShoppingCollection()">×</button></div>${!isSimple?`<div class="muted">Semaines sélectionnées (sur 5)</div><div class="nk-week-grid">${[0,1,2,3,4].map(w=>`<label><input class="nk-active-week" type="checkbox" value="${w}" ${active.weeks.includes(w)?"checked":""} onchange="setShoppingCollectionWeeks()">S${w+1}</label>`).join("")}</div>`:""}</details></div>`;
 }
 function drawSimpleShopping(){const l=ensureShoppingCollections(),shop=l.snapshot;
- return `<div class="card"><h3>Liste simplifiée : ${escapeHtml(l.name)}</h3><p class="muted">Un article par ligne, sans quantité ni catégorie.</p><textarea id="nkSimpleInput" rows="6" placeholder="Tomates\nPain\nŒufs"></textarea><button class="primary" onclick="addSimpleArticles()">Enregistrer les articles</button></div><div class="card"><h3>Articles (${shop.items.length})</h3>${shop.items.map(i=>`<div class="nk-simple-row"><span>${escapeHtml(i.name)}</span><button class="nk-flower" aria-label="Retirer ${escapeHtml(i.name)}" onclick="removeSimpleArticle('${encodeURIComponent(i.key)}')">×</button></div>`).join("")||'<div class="muted">Liste vide.</div>'}<div class="nk-list-ctrl"><button class="outline" onclick="syncCoursesNow()">Enregistrer et synchroniser</button><button class="outline" onclick="openClearShopping()">Vider la liste</button></div></div>`;
+ return `<div class="card"><h3>Liste simplifiée : ${escapeHtml(l.name)}</h3><p class="muted">Un article par ligne, sans quantité ni catégorie.</p><textarea id="nkSimpleInput" rows="6" placeholder="Tomates\nPain\nŒufs"></textarea><button class="primary" onclick="addSimpleArticles()">Enregistrer les articles</button></div><div class="card"><h3>Articles (${shop.items.length})</h3>${shop.items.map(i=>`<div class="nk-simple-row"><span>${escapeHtml(i.name)}</span><button class="nk-flower" aria-label="Retirer ${escapeHtml(i.name)}" onclick="removeSimpleArticle('${encodeURIComponent(i.key)}')">×</button></div>`).join("")||'<div class="muted">Liste vide.</div>'}<div class="nk-list-ctrl"><button class="outline" disabled>💾 Enregistrement automatique</button><button class="outline" onclick="openClearShopping()">Vider la liste</button></div></div>`;
 }
 
 let localShopChecked=JSON.parse(localStorage.getItem(SHOP_CHECKED_KEY)||"{}");
 function saveLocalShopChecked(){localStorage.setItem(SHOP_CHECKED_KEY,JSON.stringify(localShopChecked))}
 let current="home", weekOffset=0, recipePhoto="", recipeFilter="Toutes", shoppingTab="liste";
 let currentUser=null, householdUuid=null, remoteRowId=null, syncTimer=null, isApplyingRemote=false, lastRemoteUpdatedAt=null;
-window.addEventListener("online",()=>{if(currentUser&&householdUuid&&data.shoppingList)pushRemote()});
+window.addEventListener("online",()=>{if(currentUser&&householdUuid)pushRemote()});
 const $=s=>document.querySelector(s), view=$("#view"), title=$("#title"), subtitle=$("#subtitle");
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
 const detailDialog=$("#detailDialog");
@@ -554,11 +596,12 @@ function setSyncStatus(text,offline=false){
  const el=$("#syncStatus"); if(!el)return;
  el.textContent=text; el.classList.toggle("offline",offline);
 }
-async function save(norender=false){
+async function save(norender=false,localOnly=false){
  if(Array.isArray(data.shoppingCollections)){const active=data.shoppingCollections.find(l=>l.id===data.activeShoppingCollection);if(active)active.snapshot=data.shoppingList}
+ saveShoppingLocal();
  localStorage.setItem(KEY,JSON.stringify(data));
  if(!norender)render();
- if(currentUser && householdUuid && !isApplyingRemote){
+ if(!localOnly && currentUser && householdUuid && !isApplyingRemote){
    clearTimeout(syncTimer);
    syncTimer=setTimeout(pushRemote,350);
  }
@@ -569,8 +612,8 @@ async function pushRemote(){
    setSyncStatus("☁ Synchronisation…");
    const {data:currentRow,error:readError}=await sb.from("nout_kaz_data").select("data").eq("household_uuid",householdUuid).maybeSingle();
    if(readError)throw readError;
-   if(currentRow?.data){const remoteLists=currentRow.data.shoppingCollections;if(Array.isArray(remoteLists)&&remoteLists.length){const localLists=data.shoppingCollections||[];remoteLists.forEach(rl=>{const ix=localLists.findIndex(ll=>ll.id===rl.id);if(ix<0)localLists.push(rl);else if(String(rl.snapshot?.revision||"")>String(localLists[ix].snapshot?.revision||""))localLists[ix].snapshot=rl.snapshot});data.shoppingCollections=localLists;const active=localLists.find(l=>l.id===data.activeShoppingCollection);if(active)data.shoppingList=active.snapshot;}}
-   const payload={...data,_sync_updated_at:new Date().toISOString()};
+   // Ne jamais renvoyer les listes de courses dans Supabase.
+   const payload={...withoutCloudShopping(data),_sync_updated_at:new Date().toISOString()};
    const {error}=await sb.from("nout_kaz_data")
      .update({data:payload,updated_at:new Date().toISOString()})
      .eq("household_uuid",householdUuid);
@@ -597,9 +640,7 @@ async function loadRemote(){
  const remoteHasContent=remote.recipes||remote.planning||remote.manual||remote.pantry;
  if(remoteHasContent && Object.keys(remote).length>1){
    isApplyingRemote=true;
-   const previousShop=data.shoppingList;data={...seed,...remote}; if(previousShop&&!Array.isArray(remote.shoppingCollections))data.shoppingList=previousShop;acceptShopping(remote);
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
-   localStorage.setItem(KEY,JSON.stringify(data));
+   applyRemoteKeepingLocal(remote);
    isApplyingRemote=false;
  }else{
    // First connection: migrate this device's existing Nout' Kaz to the shared cloud row.
@@ -1179,7 +1220,7 @@ function drawShop(){
  const shop=shoppingSnapshot();if(!shop.checked)shop.checked={};let visible=shop.items;
  let active=visible.filter(i=>!shop.checked?.[i.key]), bought=visible.filter(i=>!!shop.checked?.[i.key]);
  let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[shoppingRayon(i.name,i.section)]??=[]).push(i));Object.values(groups).forEach(arr=>arr.sort((a,b)=>a.name.localeCompare(b.name,"fr")));groups=Object.fromEntries(Object.entries(groups).sort((a,b)=>(SHOP_RAYONS.indexOf(a[0])+100)%100-(SHOP_RAYONS.indexOf(b[0])+100)%100));
- c.innerHTML=shoppingCollectionsHeader()+`<div class="card"><div class="actions2"><button type="button" class="outline" onclick="syncCoursesNow()">💾 Enregistrer et synchroniser</button><button type="button" class="outline" onclick="openClearShopping()">Vider la liste</button></div><div class="muted">Liste enregistrée et partagée · Le planning reste indépendant.</div>
+ c.innerHTML=shoppingCollectionsHeader()+`<div class="card"><div class="actions2"><button type="button" class="outline" disabled>💾 Enregistrement automatique</button><button type="button" class="outline" onclick="openClearShopping()">Vider la liste</button></div><div class="muted">Liste enregistrée automatiquement sur ce téléphone · Sans synchronisation cloud.</div>
   <div class="muted">Semaines de cette liste : ${(activeCollection.weeks||[]).map(w=>`S${w+1}`).join(", ")||"aucune"}</div>
   <button class="primary" style="width:100%" onclick="generateShopping()">✨ Générer ma liste</button>
   ${data.shoppingAudit?`<details class="notice"><summary>🔔 Contrôle des courses : ${data.shoppingAudit.warnings.length} alerte(s) · ${data.shoppingAudit.included}/${data.shoppingAudit.planned} recettes intégrées</summary><div>${data.shoppingAudit.warnings.slice(0,30).map(w=>`<p>${escapeHtml(w)}</p>`).join("")||"Aucune anomalie détectée."}</div></details>`:""}
@@ -1264,15 +1305,17 @@ window.addSelectedEssentials=()=>{
  if(added)markShoppingChanged();essentialsDialog.close();drawShop();
  if(!added&&essentialSelection.size)alert('Ces produits figurent déjà dans la liste de courses.');
 };
-window.removeShopItem=k=>{const shop=shoppingSnapshot(),key=decodeURIComponent(k);shop.items=shop.items.filter(i=>i.key!==key);delete shop.checked[key];markShoppingChanged();drawShop()};
+window.removeShopItem=k=>{
+ const shop=shoppingSnapshot(),key=decodeURIComponent(k);
+ const before=shop.items.length;
+ shop.items=shop.items.filter(i=>String(i.key)!==key);
+ if(shop.items.length===before){alert("Article introuvable : actualise la liste puis réessaie.");return}
+ delete shop.checked[key];markShoppingChanged();drawShop();
+};
 window.openClearShopping=()=>{document.getElementById('clearShoppingDialog').showModal()};
 window.clearShoppingConfirmed=()=>{const shop=shoppingSnapshot();shop.items=[];shop.checked={};shop.cleared=true;markShoppingChanged();document.getElementById('clearShoppingDialog').close();drawShop()};
 
-window.syncCoursesNow=async()=>{
- if(!navigator.onLine){setSyncStatus('⚠ Sauvegardé sur cet appareil',true);return}
- if(!currentUser||!householdUuid){setSyncStatus('⚠ Connexion nécessaire',true);return}
- await pushRemote();drawShop();
-};
+window.syncCoursesNow=()=>{saveShoppingLocal();setSyncStatus("✓ Courses enregistrées sur cet appareil");};
 window.generateShopping=()=>{
  const active=ensureShoppingCollections(),shop=shoppingSnapshot();
  const report=plannedIngredientsForWeeks(active.weeks||[]);
@@ -1316,9 +1359,7 @@ sb.channel("nout-kaz-shared")
    lastRemoteUpdatedAt=payload.new.updated_at||lastRemoteUpdatedAt;
    if(!incoming.recipes && !incoming.planning)return;
    isApplyingRemote=true;
-   const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop&&!Array.isArray(incoming.shoppingCollections))data.shoppingList=previousShop;acceptShopping(incoming);
-   if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];if(!Array.isArray(data.essentials))data.essentials=defaultEssentials();
-   localStorage.setItem(KEY,JSON.stringify(data));
+   applyRemoteKeepingLocal(incoming);
    isApplyingRemote=false;
    setSyncStatus("✓ Mis à jour");
    render();
@@ -1339,14 +1380,13 @@ setInterval(async()=>{
    if(error||!row)return;
    lastRemoteUpdatedAt=row.updated_at||null;
    const incoming=row.data||{};
-   if(JSON.stringify(incoming)!==JSON.stringify(data)){
-     isApplyingRemote=true;const previousShop=data.shoppingList;data={...seed,...incoming};if(previousShop&&!Array.isArray(incoming.shoppingCollections))data.shoppingList=previousShop;acceptShopping(incoming);
-     if(!data.pantry)data.pantry=[];if(!data.history)data.history=[];if(!data.manual)data.manual=[];
-     localStorage.setItem(KEY,JSON.stringify(data));isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
+   if(JSON.stringify(withoutCloudShopping(incoming))!==JSON.stringify(withoutCloudShopping(data))){
+     isApplyingRemote=true;applyRemoteKeepingLocal(incoming);isApplyingRemote=false;render();setSyncStatus("✓ Mis à jour");
    }
  }catch(e){}
 },600000);
 
+restoreShoppingLocal();
 bootAuth();
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}).then(reg=>{
@@ -1354,5 +1394,5 @@ if("serviceWorker" in navigator){
   }).catch(()=>{});
 }
 </script>
-<dialog id="clearShoppingDialog" style="max-width:420px;border:2px solid #d88b78;border-radius:24px;padding:24px;background:#fff9f1;color:#55423a"><h3>Vider la liste de courses ?</h3><p>Tous les articles seront retirés de la liste commune. Les recettes, le planning et Mes indispensables seront conservés.</p><div class="actions2"><button class="outline" type="button" onclick="clearShoppingDialog.close()">Annuler</button><button class="primary" type="button" onclick="clearShoppingConfirmed()">Oui, vider la liste</button></div></dialog></body>
+<dialog id="clearShoppingDialog" style="max-width:420px;border:2px solid #d88b78;border-radius:24px;padding:24px;background:#fff9f1;color:#55423a"><h3>Vider la liste de courses ?</h3><p>Tous les articles seront retirés de cette liste locale. Les recettes, le planning et Mes indispensables seront conservés.</p><div class="actions2"><button class="outline" type="button" onclick="clearShoppingDialog.close()">Annuler</button><button class="primary" type="button" onclick="clearShoppingConfirmed()">Oui, vider la liste</button></div></dialog></body>
 </html>
