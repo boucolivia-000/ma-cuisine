@@ -1,4 +1,4 @@
-const CACHE="nout-kaz-v5-3-1";
+const CACHE="nout-kaz-v5-3-2";
 const STATIC=["./index.html","./manifest.json","./nout-kaz-icon.png","./cat-sauces.webp"];
 
 self.addEventListener("install",event=>{

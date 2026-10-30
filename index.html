@@ -1076,7 +1076,7 @@ function shoppingUnitInfo(unit){
   "kg":{family:"mass",factor:1000,label:"g"},"kilogramme":{family:"mass",factor:1000,label:"g"},"kilogrammes":{family:"mass",factor:1000,label:"g"},
   "ml":{family:"volume",factor:1,label:"ml"},"millilitre":{family:"volume",factor:1,label:"ml"},"millilitres":{family:"volume",factor:1,label:"ml"},
   "cl":{family:"volume",factor:10,label:"ml"},"centilitre":{family:"volume",factor:10,label:"ml"},"centilitres":{family:"volume",factor:10,label:"ml"},
-  "l":{family:"volume",factor:1000,label:"ml"},"litre":{family:"volume",factor:1000,label:"ml"},"litres":{family:"volume",factor:1000,label:"ml"}
+  "c a soupe":{family:"volume",factor:15,label:"ml"},"c a cafe":{family:"volume",factor:5,label:"ml"},"unite":{family:"count",factor:1,label:"unités"},"unites":{family:"count",factor:1,label:"unités"},"piece":{family:"count",factor:1,label:"unités"},"pieces":{family:"count",factor:1,label:"unités"},"l":{family:"volume",factor:1000,label:"ml"},"litre":{family:"volume",factor:1000,label:"ml"},"litres":{family:"volume",factor:1000,label:"ml"}
  };
  return map[u]||{family:"unit:"+u,factor:1,label:unit||""};
 }
@@ -1092,35 +1092,72 @@ function shoppingQtyDisplay(qty,family,label){
  }
  return `${fmtNum(qty)} ${label||""}`.trim();
 }
-function shoppingSectionPriority(section,nameKey){
- const sec=(section||"Autre").trim();
- const preferred={"oeuf":"Œufs"};
- if(preferred[nameKey])return preferred[nameKey];
- const rank={"Fruits & légumes":1,"Fruits et légumes":1,"Œufs":1,"Viandes":2,"Poissons":2,"Produits frais":3,"Crèmerie":3,"Épicerie":4,"Surgelés":5,"Autre":99};
- return {section:sec,rank:rank[sec]??50};
+const SHOP_RAYONS=["Fruits et légumes","Boucherie et charcuterie","Poissonnerie","Produits frais et alternatives végétales","Boulangerie","Féculents, riz et pâtes","Conserves","Surgelés","Épicerie, huiles et condiments","Herbes et épices","Boissons","Autres produits"];
+function shoppingRayon(name,source){
+ const n=normalize(name),src=normalize(source||"");
+ if(/conserve|en boite|en bocal|bocal|sardine.*huile|thon.*naturel|thon.*huile/.test(n)||/conserve|bocaux/.test(src))return "Conserves";
+ if(/surgele|congele/.test(n)||/surgele/.test(src))return "Surgelés";
+ if(/poulet|dinde|porc|boeuf|veau|saucisse|jambon|lardon|viande/.test(n))return "Boucherie et charcuterie";
+ if(/saumon|thon|sardine|cabillaud|lieu noir|truite|poisson|crevette|moule|calamar|maquereau/.test(n))return "Poissonnerie";
+ if(/riz|pate|quinoa|semoule|boulgour|couscous|nouille/.test(n))return "Féculents, riz et pâtes";
+ if(/pain|baguette|brioche|macatia|croissant/.test(n))return "Boulangerie";
+ if(/oeuf|tofu|yaourt|lait|creme|fromage|mozzarella|parmesan|beurre|skyr/.test(n))return "Produits frais et alternatives végétales";
+ if(/tomate|courgette|carotte|salade|oignon|ail|echalote|brocoli|haricot vert|aubergine|poivron|citron|pomme|banane|mangue|ananas|avocat|patate douce|pomme de terre|concombre|champignon|epinard|fruit|legume/.test(n))return "Fruits et légumes";
+ if(/curry|curcuma|cumin|paprika|poivre|sel|cannelle|gingembre|persil|coriandre|thym|basilic|origan|epice/.test(n))return "Herbes et épices";
+ if(/jus|eau minerale|boisson|the|cafe/.test(n))return "Boissons";
+ if(/huile|vinaigre|moutarde|sauce|farine|sucre|miel|chocolat|graine|noix|amande|levure/.test(n))return "Épicerie, huiles et condiments";
+ const legacy={"viandes":"Boucherie et charcuterie","poissons":"Poissonnerie","poissonnerie":"Poissonnerie","epicerie":"Épicerie, huiles et condiments","fruits & legumes":"Fruits et légumes","fruits et legumes":"Fruits et légumes","cremerie":"Produits frais et alternatives végétales","produits frais":"Produits frais et alternatives végétales","oeufs":"Produits frais et alternatives végétales","conserves":"Conserves","surgeles":"Surgelés"};
+ return legacy[src]||SHOP_RAYONS.find(x=>normalize(x)===src)||"Autres produits";
 }
-function plannedIngredients(weeks,startOffset=0){
- let grouped={};
- for(let w=0;w<weeks;w++)weekDates(startOffset+w).forEach(d=>{let p=data.planning[dateKey(d)]||{};["midi","soir"].forEach(slot=>{let m=p[slot];if(!m)return;mealRecipes(m).forEach(({r,item})=>{r=resolveModular(r,item.selections||{});let serv=m.servings||r.servings,fac=serv/r.servings;r.ingredients.forEach(i=>{
-   let nk=shoppingNameKey(i.name),ui=shoppingUnitInfo(i.unit);
-   if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),sections:[],parts:{},origins:[],originRefs:[]};
-   grouped[nk].sections.push(i.section||"Autre");grouped[nk].origins.push(r._variantName?`${r._baseName} – ${r._variantName}`:r.name);grouped[nk].originRefs.push({id:item.recipeId,variantId:item.variantId||"",name:r._variantName?`${r._baseName} – ${r._variantName}`:r.name});
-   let pk=ui.family;
-   if(!grouped[nk].parts[pk])grouped[nk].parts[pk]={qty:0,family:ui.family,label:ui.label};
-   grouped[nk].parts[pk].qty+=(+i.qty||0)*fac*ui.factor;
- })})})});
- let out={};
- Object.entries(grouped).forEach(([nk,g])=>{
-   let section;
-   if(nk==="oeuf") section="Œufs";
-   else section=[...new Set(g.sections)].sort((a,b)=>{
-     let pa=shoppingSectionPriority(a,nk),pb=shoppingSectionPriority(b,nk);return (pa.rank??50)-(pb.rank??50)
-   })[0]||"Autre";
-   let parts=Object.values(g.parts),key="ingredient|"+nk;
-   out[key]={name:g.name,section,origins:[...new Set(g.origins)],originRefs:g.originRefs.filter((x,i,a)=>a.findIndex(y=>y.id===x.id&&y.variantId===x.variantId)===i),qty:0,unit:"",key,displayQty:parts.map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(" + ")};
- });
- return out;
+function shoppingNameCanonical(name){
+ let n=shoppingNameKey(name).replace(/\b(filets? de|morceaux? de)\b/g,"").replace(/\s+/g," ").trim();
+ if(/^(tomates?|tomate fraiche)/.test(n))return "tomate";
+ if(/^(courgettes?)/.test(n))return "courgette";
+ if(/^(oeufs?|œufs?)/.test(n))return "oeuf";
+ if(/^(filet de )?poulet/.test(n))return "poulet";
+ return n;
 }
+function plannedIngredientsForWeeks(weekIndices){
+ const grouped={},warnings=[],stats={planned:0,included:0,missing:0};
+ for(const w of [...new Set(weekIndices)].filter(w=>Number.isInteger(w)&&w>=0&&w<5)){
+  for(const d of weekDates(w)){
+   const p=data.planning[dateKey(d)]||{};
+   for(const [slot,m] of Object.entries(p)){
+    if(!m||slot.startsWith('_'))continue;
+    for(const item of mealItems(m)){
+     if(!item||!item.recipeId)continue;
+     stats.planned++;
+     const original=getRecipe(item.recipeId);
+     if(!original){stats.missing++;warnings.push(`Recette introuvable (${dateKey(d)}, ${slot})`);continue}
+     let r=effectiveRecipe(original,item.variantId||"");r=resolveModular(r,item.selections||{});
+     const base=Number(r.servings)||2,people=Number(item.servings)||Number(m.servings)||base;
+     if(!Number.isFinite(people)||people<=0){warnings.push(`Portions incorrectes : ${r.name}`);continue}
+     stats.included++;
+     for(const i of r.ingredients||[]){
+      if(!i.name?.trim())continue;
+      const nk=shoppingNameCanonical(i.name),ui=shoppingUnitInfo(i.unit),qty=Number(i.qty);
+      if(!Number.isFinite(qty)||qty<=0){warnings.push(`Quantité manquante : ${i.name} (${r.name})`);continue}
+      const rayon=shoppingRayon(i.name,i.section),rawRayon=normalize(i.section||'');
+      if(rawRayon&&normalize(rayon)!==rawRayon)warnings.push(`Rayon harmonisé : ${i.name} → ${rayon}`);
+      if(!grouped[nk])grouped[nk]={name:shoppingDisplayName(i.name),section:rayon,parts:{},origins:[],originRefs:[]};
+      const g=grouped[nk];g.section=shoppingRayon(g.name,rayon);
+      const pk=ui.family;if(!g.parts[pk])g.parts[pk]={qty:0,family:ui.family,label:ui.label};
+      g.parts[pk].qty+=qty*people/base*ui.factor;
+      const label=r._variantName?`${r._baseName} – ${r._variantName}`:r.name;
+      g.origins.push(label);g.originRefs.push({id:item.recipeId,variantId:item.variantId||'',name:label,quantity:shoppingQtyDisplay(qty*people/base*ui.factor,ui.family,ui.label),people});
+     }
+    }
+   }
+  }
+ }
+ const out={};
+ for(const [nk,g] of Object.entries(grouped)){
+  const key='ingredient|'+nk;
+  out[key]={key,name:g.name,section:g.section,origins:[...new Set(g.origins)],originRefs:g.originRefs,qty:0,unit:'',displayQty:Object.values(g.parts).map(x=>shoppingQtyDisplay(x.qty,x.family,x.label)).join(' + ')};
+ }
+ return {items:out,warnings:[...new Set(warnings)],stats};
+}
+function plannedIngredients(weeks,startOffset=0){return plannedIngredientsForWeeks(Array.from({length:weeks},(_,i)=>startOffset+i)).items}
 function pantryHas(i){return data.pantry.some(p=>shoppingNameKey(p.name)===shoppingNameKey(i.name))}
 function drawShop(){
  let c=$("#shopContent");if(!c)return;
@@ -1141,10 +1178,11 @@ function drawShop(){
  let startWeek=Math.min(4,Math.max(0,+data.shoppingStartWeek||0)), weeks=Math.min(data.shoppingWeeks||1,5-startWeek);
  const shop=shoppingSnapshot();if(!shop.checked)shop.checked={};let visible=shop.items;
  let active=visible.filter(i=>!shop.checked?.[i.key]), bought=visible.filter(i=>!!shop.checked?.[i.key]);
- let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[i.section||"Autre"]??=[]).push(i));
+ let search=window.shopSearch||"";active=active.filter(i=>normalize(i.name).includes(normalize(search)));let groups={};active.forEach(i=>(groups[shoppingRayon(i.name,i.section)]??=[]).push(i));Object.values(groups).forEach(arr=>arr.sort((a,b)=>a.name.localeCompare(b.name,"fr")));groups=Object.fromEntries(Object.entries(groups).sort((a,b)=>(SHOP_RAYONS.indexOf(a[0])+100)%100-(SHOP_RAYONS.indexOf(b[0])+100)%100));
  c.innerHTML=shoppingCollectionsHeader()+`<div class="card"><div class="actions2"><button type="button" class="outline" onclick="syncCoursesNow()">💾 Enregistrer et synchroniser</button><button type="button" class="outline" onclick="openClearShopping()">Vider la liste</button></div><div class="muted">Liste enregistrée et partagée · Le planning reste indépendant.</div>
-  <label>Semaine de départ<select id="shopStartWeek"></select></label>
-  <div class="grid2"><label>Durée<select id="shopWeeks"></select></label><label>&nbsp;<button class="primary" style="margin-top:6px;width:100%" onclick="generateShopping()">✨ Générer ma liste</button></label></div>
+  <div class="muted">Semaines de cette liste : ${(activeCollection.weeks||[]).map(w=>`S${w+1}`).join(", ")||"aucune"}</div>
+  <button class="primary" style="width:100%" onclick="generateShopping()">✨ Générer ma liste</button>
+  ${data.shoppingAudit?`<details class="notice"><summary>🔔 Contrôle des courses : ${data.shoppingAudit.warnings.length} alerte(s) · ${data.shoppingAudit.included}/${data.shoppingAudit.planned} recettes intégrées</summary><div>${data.shoppingAudit.warnings.slice(0,30).map(w=>`<p>${escapeHtml(w)}</p>`).join("")||"Aucune anomalie détectée."}</div></details>`:""}
   <div class="muted">${data.shoppingGeneratedAt?`Dernière génération : ${new Date(data.shoppingGeneratedAt).toLocaleString("fr-FR")}`:"Planifie tes repas puis génère la liste."}</div>
  </div>
  <div class="card essentials-launch"><button type="button" class="outline essentials-launch-button" onclick="openEssentials()">🧺 Mes indispensables <span>Choisir les produits récurrents</span></button></div>
@@ -1164,13 +1202,13 @@ function drawShop(){
    return `${o===0?"Cette semaine":o===1?"Semaine prochaine":`Dans ${o} semaines`} · ${fmt(a)} au ${fmt(b)}`;
  };
  $("#shopSearchInput").oninput=e=>{window.shopSearch=e.target.value;drawShop();let inp=$("#shopSearchInput");inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)};
- $("#shopStartWeek").innerHTML=[0,1,2,3,4].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
- $("#shopStartWeek").value=startWeek;
+ if($("#shopStartWeek"))$("#shopStartWeek").innerHTML=[0,1,2,3,4].map(o=>`<option value="${o}">${weekLabel(o)}</option>`).join("");
+ if($("#shopStartWeek"))$("#shopStartWeek").value=startWeek;
  const maxWeeks=5-startWeek;
- $("#shopWeeks").innerHTML=Array.from({length:maxWeeks},(_,i)=>i+1).map(n=>`<option value="${n}">${n} semaine${n>1?"s":""}</option>`).join("");
- $("#shopWeeks").value=weeks;
- $("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
- $("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
+ if($("#shopWeeks"))$("#shopWeeks").innerHTML=Array.from({length:maxWeeks},(_,i)=>i+1).map(n=>`<option value="${n}">${n} semaine${n>1?"s":""}</option>`).join("");
+ if($("#shopWeeks"))$("#shopWeeks").value=weeks;
+ if($("#shopStartWeek"))$("#shopStartWeek").onchange=e=>{data.shoppingStartWeek=+e.target.value;data.shoppingWeeks=Math.min(data.shoppingWeeks||1,5-data.shoppingStartWeek);save(true);drawShop()};
+ if($("#shopWeeks"))$("#shopWeeks").onchange=e=>{data.shoppingWeeks=+e.target.value;save(true);drawShop()};
 }
 window.showShopOrigins=k=>{
  const key=decodeURIComponent(k),start=Math.min(4,+data.shoppingStartWeek||0),weeks=Math.min(data.shoppingWeeks||1,5-start);
@@ -1236,14 +1274,15 @@ window.syncCoursesNow=async()=>{
  await pushRemote();drawShop();
 };
 window.generateShopping=()=>{
- const active=ensureShoppingCollections(),shop=shoppingSnapshot(),planned={};
- (active.weeks||[]).forEach(w=>{Object.entries(plannedIngredients(1,w)).forEach(([k,v])=>{if(!planned[k])planned[k]=v;else{planned[k].displayQty=[planned[k].displayQty,v.displayQty].filter(Boolean).join(" + ");planned[k].origins=[...new Set([...(planned[k].origins||[]),...(v.origins||[])])];planned[k].originRefs=[...(planned[k].originRefs||[]),...(v.originRefs||[])]}})});
- // Regeneration is explicit. Keep manually added articles, avoiding duplicates.
+ const active=ensureShoppingCollections(),shop=shoppingSnapshot();
+ const report=plannedIngredientsForWeeks(active.weeks||[]);
  const manual=shop.items.filter(i=>i.manual);
- const items=Object.values(planned).filter(i=>!pantryHas(i));
- manual.forEach(i=>{if(!items.some(v=>shoppingNameKey(v.name)===shoppingNameKey(i.name)))items.push(i)});
+ const items=Object.values(report.items).filter(i=>!pantryHas(i));
+ manual.forEach(i=>{if(!items.some(v=>shoppingNameCanonical(v.name)===shoppingNameCanonical(i.name)))items.push(i)});
  shop.items=items;shop.checked={};shop.cleared=false;
- data.shoppingGeneratedAt=Date.now();markShoppingChanged();drawShop();
+ data.shoppingGeneratedAt=Date.now();
+ data.shoppingAudit={...report.stats,warnings:report.warnings.slice(0,100),date:Date.now()};
+ markShoppingChanged();drawShop();
 };
 window.takeShopItem=(e,k,row)=>{if(e.target.closest('button'))return;const shop=shoppingSnapshot();shop.checked[decodeURIComponent(k)]=true;markShoppingChanged();row.classList.add('done');setTimeout(drawShop,400)};
 window.restoreShopItem=k=>{const shop=shoppingSnapshot();delete shop.checked[decodeURIComponent(k)];markShoppingChanged();drawShop()};
